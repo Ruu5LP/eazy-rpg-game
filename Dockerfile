@@ -45,12 +45,17 @@ COPY backend/nginx.conf /etc/nginx/sites-available/default
 # Set up frontend
 WORKDIR /app/frontend
 COPY frontend/package*.json ./
-RUN npm install
+
+# Install npm dependencies with increased memory and retry logic
+RUN npm cache clean --force && \
+    npm install --verbose --legacy-peer-deps || \
+    (npm cache clean --force && npm install --verbose --legacy-peer-deps) || \
+    (npm cache clean --force && npm install --verbose --force)
 
 COPY frontend/ ./
 
-# Build frontend for production
-RUN npm run build
+# Build frontend for production with increased memory
+RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 # Remove Laravel's default index.php from public to avoid conflicts
 RUN rm -f /var/www/html/public/index.php
