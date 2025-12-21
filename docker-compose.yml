@@ -1,0 +1,46 @@
+services:
+  # Combined Application (Laravel Backend + React Frontend)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: eazy-rpg-app
+    ports:
+      - "80:80"
+    volumes:
+      - ./backend:/var/www/html
+      - /var/www/html/vendor
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - DB_CONNECTION=mysql
+      - DB_HOST=db
+      - DB_PORT=3306
+      - DB_DATABASE=eazy_rpg
+      - DB_USERNAME=root
+      - DB_PASSWORD=secret
+    depends_on:
+      - db
+    networks:
+      - eazy-rpg-network
+
+  # MySQL Database
+  db:
+    image: mysql:8.0
+    container_name: eazy-rpg-db
+    ports:
+      - "3306:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=secret
+      - MYSQL_DATABASE=eazy_rpg
+    volumes:
+      - db-data:/var/lib/mysql
+    networks:
+      - eazy-rpg-network
+
+networks:
+  eazy-rpg-network:
+    driver: bridge
+
+volumes:
+  db-data:
