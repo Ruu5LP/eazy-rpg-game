@@ -1,4 +1,4 @@
-import CommandTerminal from './components/CommandTerminal';
+import MenuRPG from './components/MenuRPG';
 import { apiService } from './services/api';
 
 function App() {
@@ -14,7 +14,7 @@ function App() {
     }
   };
 
-  return <CommandTerminal onCommand={handleCommand} />;
+  return <MenuRPG onCommand={handleCommand} />;
 }
 
 export default App;

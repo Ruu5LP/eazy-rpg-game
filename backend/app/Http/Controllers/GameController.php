@@ -50,6 +50,7 @@ class GameController extends Controller
             'defend', 'ぼうぎょ' => $this->defend($session),
             'flee', 'にげる' => $this->flee($session),
             'explore', 'たんさく' => $this->explore($session),
+            'items', 'アイテム' => $this->showItems($session),
             default => [
                 'success' => false,
                 'message' => "不明なコマンド: {$command}\n'help' でコマンド一覧を表示します。"
@@ -331,6 +332,21 @@ class GameController extends Controller
         return [
             'success' => true,
             'message' => "戦闘から逃げ出した！",
+        ];
+    }
+
+    private function showItems(GameSession $session): array
+    {
+        if (!$session->player_id) {
+            return [
+                'success' => false,
+                'message' => "ゲームが開始されていません。",
+            ];
+        }
+
+        return [
+            'success' => true,
+            'message' => "=== アイテム ===\n\nアイテムシステムは現在開発中です。\n今後のアップデートをお楽しみに！",
         ];
     }
 }
