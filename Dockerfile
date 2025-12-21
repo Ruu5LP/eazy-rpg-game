@@ -1,4 +1,4 @@
-FROM php:8.2-fpm
+FROM php:8.2-apache
 
 # Install system dependencies including Node.js
 RUN apt-get update && apt-get install -y \
@@ -9,7 +9,6 @@ RUN apt-get update && apt-get install -y \
     libxml2-dev \
     zip \
     unzip \
-    nginx \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs
 
@@ -18,6 +17,9 @@ RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install PHP extensions
 RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+
+# Enable Apache modules
+RUN a2enmod rewrite headers
 
 # Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
@@ -38,9 +40,6 @@ RUN mkdir -p /var/www/html/storage/logs \
     && chown -R www-data:www-data /var/www/html \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/bootstrap/cache
-
-# Remove default nginx configs first
-RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-available/default
 
 # Set up frontend
 WORKDIR /app/frontend
@@ -69,8 +68,8 @@ RUN chown -R www-data:www-data /var/www/html/public \
     && find /var/www/html/public -type f -exec chmod 644 {} \; \
     && find /var/www/html/public -type d -exec chmod 755 {} \;
 
-# Create a new index.php for API routing in a separate directory
-RUN mkdir -p /var/www/html/api && \
+# Create a new index.php for API routing
+RUN mkdir -p /var/www/html/public/api && \
     echo '<?php\n\
 define("LARAVEL_START", microtime(true));\n\
 if (file_exists($maintenance = __DIR__."/../../storage/framework/maintenance.php")) {\n\
@@ -82,60 +81,42 @@ $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);\n\
 $response = $kernel->handle(\n\
     $request = Illuminate\Http\Request::capture()\n\
 )->send();\n\
-$kernel->terminate($request, $response);' > /var/www/html/api/index.php \
-    && chmod 755 /var/www/html/api \
-    && chmod 644 /var/www/html/api/index.php
+$kernel->terminate($request, $response);' > /var/www/html/public/api/index.php
 
-# Update nginx config to serve both API and frontend
-RUN echo 'user www-data; \n\
-worker_processes auto; \n\
-pid /run/nginx.pid; \n\
-\n\
-events { \n\
-    worker_connections 768; \n\
-} \n\
-\n\
-http { \n\
-    include /etc/nginx/mime.types; \n\
-    default_type application/octet-stream; \n\
+# Configure Apache
+RUN echo '<VirtualHost *:80>\n\
+    ServerAdmin webmaster@localhost\n\
+    DocumentRoot /var/www/html/public\n\
     \n\
-    access_log /var/log/nginx/access.log; \n\
-    error_log /var/log/nginx/error.log; \n\
+    <Directory /var/www/html/public>\n\
+        Options Indexes FollowSymLinks\n\
+        AllowOverride All\n\
+        Require all granted\n\
+    </Directory>\n\
     \n\
-    server { \n\
-        listen 80; \n\
-        server_name localhost; \n\
-        root /var/www/html/public; \n\
-        index index.html; \n\
-        charset utf-8; \n\
-        \n\
-        # Serve frontend static files first \n\
-        location / { \n\
-            try_files $uri $uri/ /index.html; \n\
-        } \n\
-        \n\
-        # API routes - use the Laravel router \n\
-        location /api { \n\
-            alias /var/www/html/api; \n\
-            try_files $uri /api/index.php?$query_string; \n\
-            \n\
-            location ~ \.php$ { \n\
-                fastcgi_pass 127.0.0.1:9000; \n\
-                fastcgi_param SCRIPT_FILENAME /var/www/html/api/index.php; \n\
-                include fastcgi_params; \n\
-                fastcgi_param PATH_INFO $fastcgi_path_info; \n\
-            } \n\
-        } \n\
-        \n\
-        location = /favicon.ico { access_log off; log_not_found off; } \n\
-        location = /robots.txt  { access_log off; log_not_found off; } \n\
-        \n\
-        # Block access to hidden files \n\
-        location ~ /\.(?!well-known).* { \n\
-            deny all; \n\
-        } \n\
-    } \n\
-}' > /etc/nginx/nginx.conf
+    ErrorLog ${APACHE_LOG_DIR}/error.log\n\
+    CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
+</VirtualHost>' > /etc/apache2/sites-available/000-default.conf
+
+# Create .htaccess for routing
+RUN echo '<IfModule mod_rewrite.c>\n\
+    RewriteEngine On\n\
+    \n\
+    # Redirect Trailing Slashes...\n\
+    RewriteCond %{REQUEST_FILENAME} !-d\n\
+    RewriteCond %{REQUEST_URI} (.+)/$\n\
+    RewriteRule ^ %1 [L,R=301]\n\
+    \n\
+    # Handle API requests\n\
+    RewriteCond %{REQUEST_URI} ^/api\n\
+    RewriteCond %{REQUEST_FILENAME} !-f\n\
+    RewriteRule ^ /api/index.php [L]\n\
+    \n\
+    # Send all other requests to index.html\n\
+    RewriteCond %{REQUEST_FILENAME} !-f\n\
+    RewriteCond %{REQUEST_FILENAME} !-d\n\
+    RewriteRule ^ /index.html [L]\n\
+</IfModule>' > /var/www/html/public/.htaccess
 
 # Expose port 80
 EXPOSE 80
@@ -155,8 +136,6 @@ chmod -R 775 /var/www/html/bootstrap/cache\n\
 # Ensure public directory has correct permissions\n\
 chown -R www-data:www-data /var/www/html/public\n\
 chmod -R 755 /var/www/html/public\n\
-find /var/www/html/public -type f -exec chmod 644 {} \\;\n\
-find /var/www/html/public -type d -exec chmod 755 {} \\;\n\
 \n\
 # Generate app key if not exists\n\
 if [ ! -f /var/www/html/.env ]; then\n\
@@ -166,9 +145,6 @@ fi\n\
 if ! grep -q "APP_KEY=base64:" /var/www/html/.env; then\n\
     php artisan key:generate --force\n\
 fi\n\
-\n\
-# Start PHP-FPM\n\
-php-fpm -D\n\
 \n\
 # Wait for database to be ready\n\
 echo "Waiting for database..."\n\
@@ -187,7 +163,7 @@ done\n\
 echo "Running database migrations..."\n\
 php artisan migrate --force || echo "Migration failed or already up to date"\n\
 \n\
-# Start Nginx\n\
-nginx -g "daemon off;"' > /start.sh && chmod +x /start.sh
+# Start Apache\n\
+apache2-foreground' > /start.sh && chmod +x /start.sh
 
 CMD ["/start.sh"]
