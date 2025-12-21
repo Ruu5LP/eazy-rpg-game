@@ -58,6 +58,12 @@ RUN rm -f /var/www/html/public/index.php
 # Copy built frontend to Laravel public directory
 RUN cp -r /app/frontend/dist/* /var/www/html/public/
 
+# Set proper permissions for public directory and all files
+RUN chown -R www-data:www-data /var/www/html/public \
+    && chmod -R 755 /var/www/html/public \
+    && find /var/www/html/public -type f -exec chmod 644 {} \; \
+    && find /var/www/html/public -type d -exec chmod 755 {} \;
+
 # Create a new index.php for API routing in a separate directory
 RUN mkdir -p /var/www/html/api && \
     echo '<?php\n\
@@ -71,7 +77,9 @@ $kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);\n\
 $response = $kernel->handle(\n\
     $request = Illuminate\Http\Request::capture()\n\
 )->send();\n\
-$kernel->terminate($request, $response);' > /var/www/html/api/index.php
+$kernel->terminate($request, $response);' > /var/www/html/api/index.php \
+    && chmod 755 /var/www/html/api \
+    && chmod 644 /var/www/html/api/index.php
 
 # Update nginx config to serve both API and frontend
 RUN echo 'server { \n\
@@ -122,6 +130,12 @@ chown -R www-data:www-data /var/www/html/storage\n\
 chown -R www-data:www-data /var/www/html/bootstrap/cache\n\
 chmod -R 775 /var/www/html/storage\n\
 chmod -R 775 /var/www/html/bootstrap/cache\n\
+\n\
+# Ensure public directory has correct permissions\n\
+chown -R www-data:www-data /var/www/html/public\n\
+chmod -R 755 /var/www/html/public\n\
+find /var/www/html/public -type f -exec chmod 644 {} \\;\n\
+find /var/www/html/public -type d -exec chmod 755 {} \\;\n\
 \n\
 # Generate app key if not exists\n\
 if [ ! -f /var/www/html/.env ]; then\n\
