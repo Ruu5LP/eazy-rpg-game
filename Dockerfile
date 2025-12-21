@@ -52,38 +52,57 @@ COPY frontend/ ./
 # Build frontend for production
 RUN npm run build
 
+# Remove Laravel's default index.php from public to avoid conflicts
+RUN rm -f /var/www/html/public/index.php
+
 # Copy built frontend to Laravel public directory
 RUN cp -r /app/frontend/dist/* /var/www/html/public/
+
+# Create a new index.php for API routing in a separate directory
+RUN mkdir -p /var/www/html/api && \
+    echo '<?php\n\
+define("LARAVEL_START", microtime(true));\n\
+if (file_exists($maintenance = __DIR__."/../../storage/framework/maintenance.php")) {\n\
+    require $maintenance;\n\
+}\n\
+require __DIR__."/../../vendor/autoload.php";\n\
+$app = require_once __DIR__."/../../bootstrap/app.php";\n\
+$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);\n\
+$response = $kernel->handle(\n\
+    $request = Illuminate\Http\Request::capture()\n\
+)->send();\n\
+$kernel->terminate($request, $response);' > /var/www/html/api/index.php
 
 # Update nginx config to serve both API and frontend
 RUN echo 'server { \n\
     listen 80; \n\
     server_name localhost; \n\
     root /var/www/html/public; \n\
-    index index.html index.php; \n\
+    index index.html; \n\
     charset utf-8; \n\
     \n\
-    # Serve frontend static files \n\
+    # Serve frontend static files first \n\
     location / { \n\
         try_files $uri $uri/ /index.html; \n\
     } \n\
     \n\
-    # API routes \n\
+    # API routes - use the Laravel router \n\
     location /api { \n\
-        try_files $uri $uri/ /index.php?$query_string; \n\
+        alias /var/www/html/api; \n\
+        try_files $uri /api/index.php?$query_string; \n\
+        \n\
+        location ~ \.php$ { \n\
+            fastcgi_pass 127.0.0.1:9000; \n\
+            fastcgi_param SCRIPT_FILENAME /var/www/html/api/index.php; \n\
+            include fastcgi_params; \n\
+            fastcgi_param PATH_INFO $fastcgi_path_info; \n\
+        } \n\
     } \n\
     \n\
     location = /favicon.ico { access_log off; log_not_found off; } \n\
     location = /robots.txt  { access_log off; log_not_found off; } \n\
     \n\
-    error_page 404 /index.php; \n\
-    \n\
-    location ~ \.php$ { \n\
-        fastcgi_pass 127.0.0.1:9000; \n\
-        fastcgi_param SCRIPT_FILENAME $realpath_root$fastcgi_script_name; \n\
-        include fastcgi_params; \n\
-    } \n\
-    \n\
+    # Block access to hidden files \n\
     location ~ /\.(?!well-known).* { \n\
         deny all; \n\
     } \n\
