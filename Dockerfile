@@ -113,8 +113,27 @@ if ! grep -q "APP_KEY=base64:" /var/www/html/.env; then\n\
     php artisan key:generate --force\n\
 fi\n\
 \n\
-# Start PHP-FPM and Nginx\n\
+# Start PHP-FPM\n\
 php-fpm -D\n\
+\n\
+# Wait for database to be ready\n\
+echo "Waiting for database..."\n\
+for i in {1..30}; do\n\
+    if php artisan migrate:status --force &> /dev/null; then\n\
+        echo "Database is ready!"\n\
+        break\n\
+    fi\n\
+    if [ $i -eq 30 ]; then\n\
+        echo "Warning: Database might not be ready, but starting anyway..."\n\
+    fi\n\
+    sleep 1\n\
+done\n\
+\n\
+# Run migrations automatically\n\
+echo "Running database migrations..."\n\
+php artisan migrate --force || echo "Migration failed or already up to date"\n\
+\n\
+# Start Nginx\n\
 nginx -g "daemon off;"' > /start.sh && chmod +x /start.sh
 
 CMD ["/start.sh"]
