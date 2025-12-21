@@ -1,6 +1,6 @@
 # Easy RPG Game
 
-ブラウザで動作するコマンドベースのRPGゲーム
+ブラウザで動作するメニュー選択式RPGゲーム
 
 ## 技術スタック
 
@@ -16,7 +16,7 @@
 - **TailwindCSS 4**
 
 ### インフラ
-- **Docker & Docker Compose**
+- **Docker & Docker Compose** (統合コンテナ構成)
 
 ### AI統合
 - 敵のAI行動（将来的にOpenAI/Anthropic APIを統合予定）
@@ -35,49 +35,60 @@ git clone <repository-url>
 cd eazy-rpg-game
 ```
 
-2. バックエンドの環境設定
+2. 自動セットアップスクリプトを実行
 ```bash
-cd backend
-cp .env.example .env
+./setup.sh
 ```
 
-3. Docker環境を起動
+**または手動セットアップ:**
+
 ```bash
-# プロジェクトルートで実行
-docker-compose up -d
+# 環境設定
+cp backend/.env.example backend/.env
+
+# Docker起動
+docker-compose up -d --build
+
+# データベース設定
+docker-compose exec app php artisan key:generate
+docker-compose exec app php artisan migrate
 ```
 
-4. データベースマイグレーション
-```bash
-docker-compose exec backend php artisan migrate
-```
-
-5. ブラウザでアクセス
-- フロントエンド: http://localhost:5173
-- バックエンドAPI: http://localhost:8000
+3. ブラウザでアクセス
+- ゲーム: http://localhost
+- API: http://localhost/api
 
 ## ゲームの遊び方
 
-### 基本コマンド
+### メニューボタン
 
-- `start <名前>` / `はじめる <名前>` - 新しいゲームを開始
-- `status` / `ステータス` - プレイヤーの状態を表示
-- `explore` / `たんさく` - 敵を探索
-- `help` / `ヘルプ` - コマンド一覧を表示
+ゲームはメニュー選択式です。画面下のボタンをクリックして遊びます：
 
-### 戦闘コマンド
+**開始画面:**
+- ゲームを始める - 新しいゲームを開始
+- ヘルプ - ゲームの説明を表示
 
-- `attack` / `こうげき` - 敵を攻撃
-- `defend` / `ぼうぎょ` - 防御姿勢をとる
-- `flee` / `にげる` - 戦闘から逃げる
+**探索中:**
+- すすむ（探索）- 敵を探索
+- ステータス - プレイヤーの状態を表示
+- アイテム - アイテム管理（開発中）
+- ヘルプ - ヘルプを表示
+
+**戦闘中:**
+- たたかう - 敵を攻撃
+- ぼうぎょ - 防御姿勢をとる
+- にげる - 戦闘から逃げる
+- ステータス - ステータスを表示
 
 ## 開発
 
-### バックエンド開発
+### アプリケーションコンテナ
+
+統合コンテナには、バックエンド（Laravel）とフロントエンド（React）の両方が含まれています。
 
 ```bash
 # コンテナに入る
-docker-compose exec backend bash
+docker-compose exec app bash
 
 # マイグレーション実行
 php artisan migrate
@@ -89,29 +100,31 @@ php artisan make:model ModelName
 php artisan make:controller ControllerName
 ```
 
-### フロントエンド開発
-
-```bash
-# コンテナに入る
-docker-compose exec frontend sh
-
-# 依存関係のインストール
-npm install
-
-# 開発サーバー起動（既に起動中）
-npm run dev
-```
-
 ### ログ確認
 
 ```bash
 # 全コンテナのログ
 docker-compose logs -f
 
-# 特定のコンテナのログ
-docker-compose logs -f backend
-docker-compose logs -f frontend
+# アプリケーションコンテナのログ
+docker-compose logs -f app
 ```
+
+## コンテナ構成
+
+このプロジェクトは**2つのDockerコンテナ**で動作します：
+
+1. **appコンテナ**: バックエンド（Laravel）とフロントエンド（React）を統合
+   - ポート80でNginx経由でアクセス
+   - フロントエンド（静的ファイル）とAPIを同一サーバーで提供
+   
+2. **dbコンテナ**: MySQLデータベース
+   - ポート3306
+
+**利点:**
+- 簡単なセットアップ（1つのURLでアクセス）
+- CORSの問題なし
+- シンプルなテストとデバッグ
 
 ## AI統合について
 

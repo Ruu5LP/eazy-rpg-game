@@ -35,16 +35,6 @@ else
     echo "⚠️  backend/.env は既に存在します（スキップ）"
 fi
 
-# Copy .env.example to .env for frontend
-if [ ! -f frontend/.env ]; then
-    echo ""
-    echo "📝 フロントエンドの環境設定ファイルを作成中..."
-    cp frontend/.env.example frontend/.env
-    echo "✅ frontend/.env を作成しました"
-else
-    echo "⚠️  frontend/.env は既に存在します（スキップ）"
-fi
-
 echo ""
 echo "🐳 Dockerコンテナをビルド・起動中..."
 docker-compose up -d --build
@@ -55,8 +45,8 @@ sleep 10
 
 echo ""
 echo "🗄️  データベースマイグレーションを実行中..."
-docker-compose exec -T backend php artisan key:generate
-docker-compose exec -T backend php artisan migrate --force
+docker-compose exec -T app php artisan key:generate
+docker-compose exec -T app php artisan migrate --force
 
 echo ""
 echo "====================================="
@@ -64,10 +54,10 @@ echo "  ✅ セットアップ完了！"
 echo "====================================="
 echo ""
 echo "🎮 ゲームを開始するには:"
-echo "   ブラウザで http://localhost:5173 を開いてください"
+echo "   ブラウザで http://localhost を開いてください"
 echo ""
-echo "📚 APIドキュメント:"
-echo "   http://localhost:8000/api"
+echo "📚 APIエンドポイント:"
+echo "   http://localhost/api"
 echo ""
 echo "🛠️  開発コマンド:"
 echo "   docker-compose logs -f       # ログを表示"

@@ -1,12 +1,12 @@
 services:
-  # Laravel Backend
-  backend:
+  # Combined Application (Laravel Backend + React Frontend)
+  app:
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
-    container_name: eazy-rpg-backend
+    container_name: eazy-rpg-app
     ports:
-      - "8000:8000"
+      - "80:80"
     volumes:
       - ./backend:/var/www/html
       - /var/www/html/vendor
@@ -23,24 +23,6 @@ services:
       - db
     networks:
       - eazy-rpg-network
-
-  # React Frontend
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: eazy-rpg-frontend
-    ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - VITE_API_URL=http://localhost:8000
-    networks:
-      - eazy-rpg-network
-    depends_on:
-      - backend
 
   # MySQL Database
   db:
