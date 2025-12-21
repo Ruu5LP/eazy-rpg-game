@@ -87,39 +87,55 @@ $kernel->terminate($request, $response);' > /var/www/html/api/index.php \
     && chmod 644 /var/www/html/api/index.php
 
 # Update nginx config to serve both API and frontend
-RUN echo 'server { \n\
-    listen 80; \n\
-    server_name localhost; \n\
-    root /var/www/html/public; \n\
-    index index.html; \n\
-    charset utf-8; \n\
+RUN echo 'user www-data; \n\
+worker_processes auto; \n\
+pid /run/nginx.pid; \n\
+\n\
+events { \n\
+    worker_connections 768; \n\
+} \n\
+\n\
+http { \n\
+    include /etc/nginx/mime.types; \n\
+    default_type application/octet-stream; \n\
     \n\
-    # Serve frontend static files first \n\
-    location / { \n\
-        try_files $uri $uri/ /index.html; \n\
-    } \n\
+    access_log /var/log/nginx/access.log; \n\
+    error_log /var/log/nginx/error.log; \n\
     \n\
-    # API routes - use the Laravel router \n\
-    location /api { \n\
-        alias /var/www/html/api; \n\
-        try_files $uri /api/index.php?$query_string; \n\
+    server { \n\
+        listen 80; \n\
+        server_name localhost; \n\
+        root /var/www/html/public; \n\
+        index index.html; \n\
+        charset utf-8; \n\
         \n\
-        location ~ \.php$ { \n\
-            fastcgi_pass 127.0.0.1:9000; \n\
-            fastcgi_param SCRIPT_FILENAME /var/www/html/api/index.php; \n\
-            include fastcgi_params; \n\
-            fastcgi_param PATH_INFO $fastcgi_path_info; \n\
+        # Serve frontend static files first \n\
+        location / { \n\
+            try_files $uri $uri/ /index.html; \n\
+        } \n\
+        \n\
+        # API routes - use the Laravel router \n\
+        location /api { \n\
+            alias /var/www/html/api; \n\
+            try_files $uri /api/index.php?$query_string; \n\
+            \n\
+            location ~ \.php$ { \n\
+                fastcgi_pass 127.0.0.1:9000; \n\
+                fastcgi_param SCRIPT_FILENAME /var/www/html/api/index.php; \n\
+                include fastcgi_params; \n\
+                fastcgi_param PATH_INFO $fastcgi_path_info; \n\
+            } \n\
+        } \n\
+        \n\
+        location = /favicon.ico { access_log off; log_not_found off; } \n\
+        location = /robots.txt  { access_log off; log_not_found off; } \n\
+        \n\
+        # Block access to hidden files \n\
+        location ~ /\.(?!well-known).* { \n\
+            deny all; \n\
         } \n\
     } \n\
-    \n\
-    location = /favicon.ico { access_log off; log_not_found off; } \n\
-    location = /robots.txt  { access_log off; log_not_found off; } \n\
-    \n\
-    # Block access to hidden files \n\
-    location ~ /\.(?!well-known).* { \n\
-        deny all; \n\
-    } \n\
-}' > /etc/nginx/sites-available/default
+}' > /etc/nginx/nginx.conf
 
 # Expose port 80
 EXPOSE 80
