@@ -170,15 +170,13 @@ eazy-rpg-game/
 │   │   └── Models/             # Eloquentモデル
 │   ├── database/
 │   │   └── migrations/         # データベースマイグレーション
+│   ├── resources/
+│   │   └── frontend/          # Reactフロントエンド
+│   │       ├── src/           # Reactコンポーネントとサービス
+│   │       ├── App.tsx        # メインアプリ
+│   │       └── index.css      # TailwindCSSスタイル
 │   ├── routes/
 │   │   └── api.php            # APIルート
-│   └── Dockerfile
-├── frontend/                   # Reactフロントエンド
-│   ├── src/
-│   │   ├── components/        # Reactコンポーネント
-│   │   ├── services/          # APIサービス
-│   │   ├── App.tsx           # メインアプリ
-│   │   └── index.css         # TailwindCSSスタイル
 │   └── Dockerfile
 └── README.md
 ```
@@ -202,7 +200,7 @@ docker-compose restart db
 
 ### フロントエンドがAPIに接続できない
 
-- `frontend/.env`ファイルで`VITE_API_URL`が正しいことを確認
+- `backend/resources/frontend/.env`ファイルで`VITE_API_URL`が正しいことを確認
 - CORSが有効になっていることを確認
 
 ## ライセンス

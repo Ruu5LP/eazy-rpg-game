@@ -40,13 +40,13 @@ Thumbs.db
 /backend/npm-debug.log
 /backend/yarn-error.log
 
-# React/Vite
-/frontend/.env
-/frontend/.env.local
-/frontend/.env.*.local
-/frontend/dist
-/frontend/node_modules
-/frontend/.eslintcache
+# React/Vite (now in backend/resources/frontend)
+/backend/resources/frontend/.env
+/backend/resources/frontend/.env.local
+/backend/resources/frontend/.env.*.local
+/backend/resources/frontend/dist
+/backend/resources/frontend/node_modules
+/backend/resources/frontend/.eslintcache
 
 # Database
 *.sqlite

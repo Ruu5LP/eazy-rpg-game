@@ -268,21 +268,20 @@ eazy-rpg-game/
 │   │       └── AIService.php  # AI統合サービス
 │   ├── database/
 │   │   └── migrations/       # データベーススキーマ
+│   ├── resources/
+│   │   └── frontend/        # Reactフロントエンド
+│   │       ├── src/
+│   │       │   ├── components/
+│   │       │   │   └── CommandTerminal.tsx  # ターミナルUI
+│   │       │   ├── services/
+│   │       │   │   └── api.ts       # API通信
+│   │       │   ├── App.tsx          # メインアプリ
+│   │       │   └── index.css        # TailwindCSSスタイル
+│   │       └── .env.example         # 環境変数テンプレート
 │   ├── routes/
 │   │   └── api.php          # APIルート定義
 │   ├── Dockerfile           # Dockerコンテナ設定
 │   └── .env.example         # 環境変数テンプレート
-│
-└── frontend/                # Reactフロントエンド
-    ├── src/
-    │   ├── components/
-    │   │   └── CommandTerminal.tsx  # ターミナルUI
-    │   ├── services/
-    │   │   └── api.ts       # API通信
-    │   ├── App.tsx          # メインアプリ
-    │   └── index.css        # TailwindCSSスタイル
-    ├── Dockerfile           # Dockerコンテナ設定
-    └── .env.example         # 環境変数テンプレート
 ```
 
 ## 🔧 トラブルシューティング
@@ -313,7 +312,7 @@ docker-compose exec backend php artisan migrate:fresh
 
 ### フロントエンドがAPIに接続できない
 
-1. `frontend/.env`ファイルを確認
+1. `backend/resources/frontend/.env`ファイルを確認
 ```env
 VITE_API_URL=http://localhost:8000
 ```

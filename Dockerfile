@@ -41,17 +41,14 @@ RUN mkdir -p /var/www/html/storage/logs \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/bootstrap/cache
 
-# Set up frontend
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
+# Build frontend (now inside backend/resources/frontend)
+WORKDIR /var/www/html/resources/frontend
 
 # Install npm dependencies with increased memory and retry logic
 RUN npm cache clean --force && \
     npm install --verbose --legacy-peer-deps || \
     (npm cache clean --force && npm install --verbose --legacy-peer-deps) || \
     (npm cache clean --force && npm install --verbose --force)
-
-COPY frontend/ ./
 
 # Build frontend for production with increased memory
 RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
@@ -60,7 +57,7 @@ RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 RUN rm -f /var/www/html/public/index.php
 
 # Copy built frontend to Laravel public directory
-RUN cp -r /app/frontend/dist/* /var/www/html/public/
+RUN cp -r /var/www/html/resources/frontend/dist/* /var/www/html/public/
 
 # Set proper permissions for public directory and all files
 RUN chown -R www-data:www-data /var/www/html/public \
@@ -87,6 +84,7 @@ $kernel->terminate($request, $response);' > /var/www/html/public/api/index.php
 RUN echo '<VirtualHost *:80>\n\
     ServerAdmin webmaster@localhost\n\
     DocumentRoot /var/www/html/public\n\
+    DirectoryIndex index.html\n\
     \n\
     <Directory /var/www/html/public>\n\
         Options Indexes FollowSymLinks\n\

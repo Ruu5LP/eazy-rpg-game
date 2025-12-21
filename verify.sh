@@ -97,10 +97,10 @@ else
     ((ERRORS++))
 fi
 
-if [ -f "frontend/.env" ]; then
-    check_status "frontend/.env が存在します"
+if [ -f "backend/resources/frontend/.env" ]; then
+    check_status "backend/resources/frontend/.env が存在します"
 else
-    echo -e "${YELLOW}⚠${NC} frontend/.env が存在しません（オプション）"
+    echo -e "${YELLOW}⚠${NC} backend/resources/frontend/.env が存在しません（オプション）"
 fi
 
 echo ""
