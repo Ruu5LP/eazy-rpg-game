@@ -39,8 +39,8 @@ RUN mkdir -p /var/www/html/storage/logs \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/bootstrap/cache
 
-# Copy backend nginx configuration
-COPY backend/nginx.conf /etc/nginx/sites-available/default
+# Remove default nginx configs first
+RUN rm -f /etc/nginx/sites-enabled/default /etc/nginx/sites-available/default
 
 # Set up frontend
 WORKDIR /app/frontend
