@@ -53,10 +53,7 @@ RUN npm cache clean --force && \
 # Build frontend for production with increased memory
 RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
-# Remove Laravel's default index.php from public to avoid conflicts
-RUN rm -f /var/www/html/public/index.php
-
-# Copy built frontend to Laravel public directory
+# Copy built frontend to Laravel public directory (keep Laravel's index.php as fallback)
 RUN cp -r /var/www/html/resources/frontend/dist/* /var/www/html/public/
 
 # Set proper permissions for public directory and all files
@@ -65,29 +62,14 @@ RUN chown -R www-data:www-data /var/www/html/public \
     && find /var/www/html/public -type f -exec chmod 644 {} \; \
     && find /var/www/html/public -type d -exec chmod 755 {} \;
 
-# Create a new index.php for API routing
-RUN mkdir -p /var/www/html/public/api && \
-    echo '<?php\n\
-define("LARAVEL_START", microtime(true));\n\
-if (file_exists($maintenance = __DIR__."/../../storage/framework/maintenance.php")) {\n\
-    require $maintenance;\n\
-}\n\
-require __DIR__."/../../vendor/autoload.php";\n\
-$app = require_once __DIR__."/../../bootstrap/app.php";\n\
-$kernel = $app->make(Illuminate\Contracts\Http\Kernel::class);\n\
-$response = $kernel->handle(\n\
-    $request = Illuminate\Http\Request::capture()\n\
-)->send();\n\
-$kernel->terminate($request, $response);' > /var/www/html/public/api/index.php
-
 # Configure Apache
 RUN echo '<VirtualHost *:80>\n\
     ServerAdmin webmaster@localhost\n\
     DocumentRoot /var/www/html/public\n\
-    DirectoryIndex index.html\n\
+    DirectoryIndex index.html index.php\n\
     \n\
     <Directory /var/www/html/public>\n\
-        Options Indexes FollowSymLinks\n\
+        Options FollowSymLinks\n\
         AllowOverride All\n\
         Require all granted\n\
     </Directory>\n\
@@ -95,26 +77,6 @@ RUN echo '<VirtualHost *:80>\n\
     ErrorLog ${APACHE_LOG_DIR}/error.log\n\
     CustomLog ${APACHE_LOG_DIR}/access.log combined\n\
 </VirtualHost>' > /etc/apache2/sites-available/000-default.conf
-
-# Create .htaccess for routing
-RUN echo '<IfModule mod_rewrite.c>\n\
-    RewriteEngine On\n\
-    \n\
-    # Redirect Trailing Slashes...\n\
-    RewriteCond %{REQUEST_FILENAME} !-d\n\
-    RewriteCond %{REQUEST_URI} (.+)/$\n\
-    RewriteRule ^ %1 [L,R=301]\n\
-    \n\
-    # Handle API requests\n\
-    RewriteCond %{REQUEST_URI} ^/api\n\
-    RewriteCond %{REQUEST_FILENAME} !-f\n\
-    RewriteRule ^ /api/index.php [L]\n\
-    \n\
-    # Send all other requests to index.html\n\
-    RewriteCond %{REQUEST_FILENAME} !-f\n\
-    RewriteCond %{REQUEST_FILENAME} !-d\n\
-    RewriteRule ^ /index.html [L]\n\
-</IfModule>' > /var/www/html/public/.htaccess
 
 # Expose port 80
 EXPOSE 80
