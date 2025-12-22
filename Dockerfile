@@ -131,6 +131,19 @@ chown -R www-data:www-data /var/www/html/bootstrap/cache\n\
 chmod -R 775 /var/www/html/storage\n\
 chmod -R 775 /var/www/html/bootstrap/cache\n\
 \n\
+# Build and deploy frontend\n\
+echo "Building frontend..."\n\
+cd /var/www/html/resources/frontend\n\
+if [ ! -d "node_modules" ]; then\n\
+    echo "Installing npm dependencies..."\n\
+    npm install --silent\n\
+fi\n\
+echo "Running frontend build..."\n\
+npm run build\n\
+echo "Deploying frontend to public directory..."\n\
+cp -r dist/* /var/www/html/public/\n\
+cd /var/www/html\n\
+\n\
 # Ensure public directory has correct permissions\n\
 chown -R www-data:www-data /var/www/html/public\n\
 chmod -R 755 /var/www/html/public\n\

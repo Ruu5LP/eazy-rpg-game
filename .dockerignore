@@ -1,0 +1,25 @@
+# Git
+.git
+.gitignore
+
+# IDE
+.idea
+.vscode
+
+# Node modules
+backend/resources/frontend/node_modules
+backend/resources/frontend/dist
+
+# Vendor
+backend/vendor
+
+# Environment
+backend/.env
+
+# Logs
+backend/storage/logs/*
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

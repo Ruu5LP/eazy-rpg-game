@@ -22,3 +22,8 @@
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Frontend build artifacts (generated from resources/frontend/dist)
+/public/index.html
+/public/vite.svg
+/public/assets/
