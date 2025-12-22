@@ -66,12 +66,12 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
       if (command.startsWith('start') || command.startsWith('はじめる')) {
         setGameStarted(true);
       }
-      
+
       // Check if in battle (simple heuristic - check for battle-related keywords)
       if (response.includes('現れた') || response.includes('戦闘') || response.includes('敵')) {
         setInBattle(true);
       }
-      
+
       if (response.includes('倒した') || response.includes('逃げ') || response.includes('ゲームオーバー')) {
         setInBattle(false);
       }
@@ -96,7 +96,7 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!playerName.trim()) return;
-    
+
     setShowNameInput(false);
     executeCommand(`ゲーム開始（${playerName}）`, `start ${playerName}`);
   };
@@ -104,15 +104,15 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
   const getMessageColor = (type: Message['type']) => {
     switch (type) {
       case 'action':
-        return 'text-cyan-400 font-bold';
+        return 'text-blue-600 font-bold bg-blue-50 border-l-4 border-blue-500 pl-2';
       case 'output':
-        return 'text-white';
+        return 'text-gray-800';
       case 'error':
-        return 'text-red-400';
+        return 'text-red-600 font-bold bg-red-50 border-l-4 border-red-500 pl-2';
       case 'system':
-        return 'text-yellow-400';
+        return 'text-green-700 font-bold bg-green-50 border-l-4 border-green-500 pl-2';
       default:
-        return 'text-gray-300';
+        return 'text-gray-600';
     }
   };
 
@@ -145,113 +145,162 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
   const menuOptions = getMenuOptions();
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-gray-900 to-gray-800">
-      {/* Game Header */}
-      <div className="bg-gray-800 border-b-2 border-yellow-600 px-6 py-4 shadow-lg">
-        <h1 className="text-yellow-400 text-2xl font-bold text-center">
-          🎮 Easy RPG Game
-        </h1>
-        {gameStarted && (
-          <div className="text-center text-gray-400 text-sm mt-1">
-            {inBattle ? '⚔️ 戦闘中' : '🗺️ 探索中'}
-          </div>
-        )}
-      </div>
-
-      {/* Messages Display Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-3">
-        {messages.map((message, index) => (
-          <div
-            key={index}
-            className={`${getMessageColor(message.type)} leading-relaxed whitespace-pre-wrap p-3 rounded ${
-              message.type === 'output' ? 'bg-gray-800 bg-opacity-50' : ''
-            }`}
-          >
-            {message.text}
-          </div>
-        ))}
-        {isProcessing && (
-          <div className="text-yellow-400 animate-pulse text-center py-2">
-            処理中...
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Name Input Modal */}
-      {showNameInput && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="bg-gray-800 border-2 border-yellow-600 rounded-lg p-8 max-w-md w-full mx-4">
-            <h2 className="text-yellow-400 text-xl font-bold mb-4 text-center">
-              プレイヤー名を入力してください
-            </h2>
-            <form onSubmit={handleNameSubmit}>
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                className="w-full bg-gray-900 text-white border-2 border-gray-600 rounded px-4 py-3 mb-4 focus:outline-none focus:border-yellow-500"
-                placeholder="名前を入力..."
-                autoFocus
-                maxLength={20}
-              />
-              <div className="flex space-x-3">
-                <button
-                  type="submit"
-                  disabled={!playerName.trim()}
-                  className="flex-1 bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  決定
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowNameInput(false)}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded transition-colors"
-                >
-                  キャンセル
-                </button>
+    <div className="min-h-screen bg-gray-200 flex items-center justify-center p-4 font-sans">
+      <div className="w-full max-w-md bg-gray-100 h-[90vh] shadow-2xl rounded-xl overflow-hidden flex flex-col relative border border-gray-300">
+        {/* Game Header & Status Bar */}
+        <div className="game-card bg-white mb-4 overflow-hidden flex-shrink-0 rounded-none border-x-0 border-t-0">
+          <div className="px-6 py-4 flex justify-between items-center border-b border-gray-200 bg-gray-50">
+            <h1 className="text-gray-800 text-xl font-bold flex items-center gap-2">
+              <span>🎮</span> EASY RPG
+            </h1>
+            {gameStarted && (
+              <div className={`px-3 py-1 rounded-full text-sm font-bold ${inBattle ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                {inBattle ? '⚔️ BATTLE MODE' : '🗺️ EXPLORE MODE'}
               </div>
-            </form>
+            )}
           </div>
-        </div>
-      )}
 
-      {/* Menu Area */}
-      <div className="bg-gray-800 border-t-2 border-yellow-600 p-6">
-        <div className="max-w-4xl mx-auto">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {menuOptions.map((option, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  if (option.command === 'start') {
-                    handleStartGame();
-                  } else {
-                    executeCommand(option.label, option.command);
-                  }
-                }}
-                disabled={!option.enabled || isProcessing}
-                className={`
-                  py-4 px-6 rounded-lg font-bold text-lg transition-all transform
-                  ${
-                    option.enabled
-                      ? 'bg-blue-600 hover:bg-blue-700 hover:scale-105 text-white shadow-lg'
-                      : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                  }
-                  ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}
-                  border-2 border-blue-400
-                `}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          
-          {!gameStarted && (
-            <div className="text-center text-gray-400 text-sm mt-4">
-              まずは「ゲームを始める」を選択してください
+          {/* Status Bar */}
+          {gameStarted && (
+            <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 bg-white">
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-500 uppercase font-bold">Name</span>
+                <span className="text-lg font-bold text-gray-800">{playerName || 'HERO'}</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-500 uppercase font-bold">Level</span>
+                <span className="text-lg font-bold text-green-600">1</span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-500 uppercase font-bold">HP</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-bold text-red-600">100/100</span>
+                  <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden max-w-[100px]">
+                    <div className="h-full bg-red-500 w-full"></div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs text-gray-500 uppercase font-bold">Gold</span>
+                <span className="text-lg font-bold text-yellow-600">0 G</span>
+              </div>
             </div>
           )}
+        </div>
+
+        {/* Messages Display Area */}
+        <div className="flex-1 game-card bg-white mb-4 overflow-hidden flex flex-col shadow-inner">
+          <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+            Adventure Log
+          </div>
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-white font-mono text-sm leading-relaxed">
+            {messages.map((message, index) => (
+              <div
+                key={index}
+                className={`${getMessageColor(message.type)} p-3 rounded`}
+              >
+                {message.text}
+              </div>
+            ))}
+            {isProcessing && (
+              <div className="text-blue-500 text-center py-4 animate-pulse font-bold flex items-center justify-center gap-2">
+                <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-bounce"></span>
+                <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-100"></span>
+                <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-bounce delay-200"></span>
+                Processing...
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* Name Input Modal */}
+        {showNameInput && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="game-card bg-white p-8 max-w-md w-full shadow-2xl animate-fade-in">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
+                Welcome, Hero!
+              </h2>
+              <p className="text-gray-500 text-center mb-6">
+                冒険を始める前に、あなたの名前を教えてください。
+              </p>
+
+              <form onSubmit={handleNameSubmit}>
+                <div className="mb-6">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Player Name
+                  </label>
+                  <input
+                    type="text"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all text-lg"
+                    placeholder="Enter your name..."
+                    autoFocus
+                    maxLength={20}
+                  />
+                </div>
+                <div className="flex gap-4">
+                  <button
+                    type="submit"
+                    disabled={!playerName.trim()}
+                    className="btn-primary flex-1"
+                  >
+                    Start Adventure
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowNameInput(false)}
+                    className="btn-secondary flex-1"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Menu Area */}
+        <div className="game-card bg-white p-6 flex-shrink-0">
+          <div className="max-w-4xl mx-auto">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+              {menuOptions.map((option, index) => (
+                <button
+                  key={index}
+                  onClick={() => {
+                    if (option.command === 'start') {
+                      handleStartGame();
+                    } else {
+                      executeCommand(option.label, option.command);
+                    }
+                  }}
+                  disabled={!option.enabled || isProcessing}
+                  className={`
+                    ${option.enabled ? 'btn-primary' : 'btn-secondary opacity-50 cursor-not-allowed'}
+                    h-16 text-lg
+                  `}
+                >
+                  <span className="text-2xl">
+                    {option.command === 'attack' && '⚔️'}
+                    {option.command === 'defend' && '🛡️'}
+                    {option.command === 'flee' && '🏃'}
+                    {option.command === 'explore' && '🗺️'}
+                    {option.command === 'status' && '📊'}
+                    {option.command === 'start' && '▶'}
+                    {option.command === 'help' && '?'}
+                  </span>
+                  <span>{option.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {!gameStarted && (
+              <div className="text-center text-gray-500 text-sm mt-4 animate-pulse">
+                ↑ 「ゲームを始める」を選択して冒険を開始してください
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
