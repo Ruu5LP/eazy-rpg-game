@@ -1,4 +1,6 @@
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MenuRPG from './components/MenuRPG';
+import TitleScreen from './components/TitleScreen';
 import { apiService } from './services/api';
 
 function App() {
@@ -14,7 +16,15 @@ function App() {
     }
   };
 
-  return <MenuRPG onCommand={handleCommand} />;
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<TitleScreen />} />
+        <Route path="/game" element={<MenuRPG onCommand={handleCommand} />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
+  );
 }
 
 export default App;

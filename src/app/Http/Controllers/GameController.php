@@ -37,14 +37,148 @@ class GameController extends Controller
         }
     }
 
+    public function getGameState(Request $request): JsonResponse
+    {
+        $session = $this->getOrCreateSession($request);
+        
+        $player = null;
+        if ($session->player_id) {
+            $player = Player::find($session->player_id);
+        }
+
+        $currentEnemy = null;
+        $inBattle = false;
+        if ($session->battle_id) {
+            $battle = Battle::with('enemy')->find($session->battle_id);
+            if ($battle && $battle->is_active) {
+                $inBattle = true;
+                $currentEnemy = [
+                    'name' => $battle->enemy->name,
+                    'hp' => $battle->enemy_hp,
+                    'max_hp' => $battle->enemy->max_hp,
+                    'level' => $battle->enemy->level,
+                ];
+            }
+        }
+
+        return response()->json([
+            'player' => $player,
+            'inBattle' => $inBattle,
+            'currentEnemy' => $currentEnemy,
+        ]);
+    }
+
+    public function startNewGame(Request $request): JsonResponse
+    {
+        $session = $this->getOrCreateSession($request);
+        $name = $request->input('player_name', 'Player');
+
+        // Reset existing session if any
+        if ($session->player_id) {
+            // Optional: delete old player or just create new one
+        }
+
+        $player = Player::create([
+            'name' => $name,
+            'level' => 1,
+            'hp' => 100,
+            'max_hp' => 100,
+            'mp' => 50,
+            'max_mp' => 50,
+            'attack' => 10,
+            'defense' => 5,
+            'experience' => 0,
+            'gold' => 100,
+        ]);
+
+        $session->player_id = $player->id;
+        $session->battle_id = null;
+        $session->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => "{$name}の冒険が始まりました！",
+            'game_state' => $this->getGameStateData($session),
+        ]);
+    }
+
+    public function saveGame(Request $request): JsonResponse
+    {
+        // Auto-save is already implemented, but this endpoint can be used for manual saves
+        return response()->json([
+            'success' => true,
+            'message' => 'ゲームをセーブしました。',
+        ]);
+    }
+
+    public function loadGame(Request $request): JsonResponse
+    {
+        $session = $this->getOrCreateSession($request);
+        
+        if (!$session->player_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'セーブデータが見つかりません。',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'ゲームをロードしました。',
+            'game_state' => $this->getGameStateData($session),
+        ]);
+    }
+
+    // Helper to get state data array
+    private function getGameStateData(GameSession $session): array
+    {
+        $player = null;
+        if ($session->player_id) {
+            $player = Player::find($session->player_id);
+        }
+
+        $currentEnemy = null;
+        $inBattle = false;
+        if ($session->battle_id) {
+            $battle = Battle::with('enemy')->find($session->battle_id);
+            if ($battle && $battle->is_active) {
+                $inBattle = true;
+                $currentEnemy = [
+                    'name' => $battle->enemy->name,
+                    'hp' => $battle->enemy_hp,
+                    'max_hp' => $battle->enemy->max_hp,
+                    'level' => $battle->enemy->level,
+                ];
+            }
+        }
+
+        return [
+            'player' => $player,
+            'inBattle' => $inBattle,
+            'currentEnemy' => $currentEnemy,
+        ];
+    }
+
+    // Existing private methods...
     private function processCommand(string $command, GameSession $session): array
     {
         $parts = explode(' ', $command);
         $action = $parts[0] ?? '';
 
+        // Handle start command specially if called via executeCommand
+        if (($action === 'start' || $action === 'はじめる') && isset($parts[1])) {
+             // Reuse the public logic but return array format expected by processCommand
+             $request = new Request(['player_name' => $parts[1]]);
+             $response = $this->startNewGame($request);
+             $data = $response->getData(true);
+             return [
+                 'success' => $data['success'],
+                 'message' => $data['message'],
+             ];
+        }
+
         return match($action) {
             'help', 'ヘルプ' => $this->showHelp(),
-            'start', 'はじめる' => $this->startNewGame($parts, $session),
             'status', 'ステータス' => $this->showStatus($session),
             'attack', 'こうげき' => $this->attack($session),
             'defend', 'ぼうぎょ' => $this->defend($session),
@@ -64,7 +198,6 @@ class GameController extends Controller
         === Easy RPG ゲームコマンド ===
         
         基本コマンド:
-        - start <名前> / はじめる <名前>: 新しいゲームを開始
         - status / ステータス: プレイヤーの状態を表示
         - explore / たんさく: 敵を探索
         
@@ -83,38 +216,12 @@ class GameController extends Controller
         ];
     }
 
-    private function startNewGame(array $parts, GameSession $session): array
-    {
-        $name = $parts[1] ?? 'プレイヤー';
-
-        $player = Player::create([
-            'name' => $name,
-            'level' => 1,
-            'hp' => 100,
-            'max_hp' => 100,
-            'mp' => 50,
-            'max_mp' => 50,
-            'attack' => 10,
-            'defense' => 5,
-            'experience' => 0,
-            'gold' => 100,
-        ]);
-
-        $session->player_id = $player->id;
-        $session->save();
-
-        return [
-            'success' => true,
-            'message' => "{$name}の冒険が始まりました！\n\nHP: {$player->hp}/{$player->max_hp}\n攻撃力: {$player->attack}\n防御力: {$player->defense}\nゴールド: {$player->gold}\n\n'explore' で敵を探索できます。",
-        ];
-    }
-
     private function showStatus(GameSession $session): array
     {
         if (!$session->player_id) {
             return [
                 'success' => false,
-                'message' => "ゲームが開始されていません。'start <名前>' でゲームを開始してください。",
+                'message' => "ゲームが開始されていません。",
             ];
         }
 
@@ -149,7 +256,7 @@ class GameController extends Controller
         if (!$session->player_id) {
             return [
                 'success' => false,
-                'message' => "ゲームが開始されていません。'start <名前>' でゲームを開始してください。",
+                'message' => "ゲームが開始されていません。",
             ];
         }
 
@@ -249,7 +356,7 @@ class GameController extends Controller
             ];
         }
 
-        // Enemy attacks back (AI決定 - ここでLLM APIを呼び出すこともできます)
+        // Enemy attacks back
         $enemyDamage = max(1, $enemy->attack - $player->defense + rand(-2, 2));
         $player->hp -= $enemyDamage;
         $player->save();

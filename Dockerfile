@@ -24,11 +24,11 @@ RUN a2enmod rewrite headers
 # Get latest Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set working directory for backend
+# Set working directory for Laravel app
 WORKDIR /var/www/html
 
-# Copy backend files
-COPY backend/ /var/www/html/
+# Copy Laravel app files
+COPY src/ /var/www/html/
 
 # Install Laravel dependencies
 RUN composer install --no-interaction --optimize-autoloader || true
@@ -41,7 +41,7 @@ RUN mkdir -p /var/www/html/storage/logs \
     && chmod -R 775 /var/www/html/storage \
     && chmod -R 775 /var/www/html/bootstrap/cache
 
-# Build frontend (now inside backend/resources/frontend)
+# Build frontend (inside src/resources/frontend)
 WORKDIR /var/www/html/resources/frontend
 
 # Install npm dependencies with increased memory and retry logic
