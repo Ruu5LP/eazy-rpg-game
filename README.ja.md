@@ -47,7 +47,7 @@ cd eazy-rpg-game
 ### 2. バックエンドの環境設定
 
 ```bash
-cd backend
+cd src
 cp .env.example .env
 ```
 
@@ -56,7 +56,7 @@ cp .env.example .env
 APP_NAME="Easy RPG Game"
 APP_ENV=local
 APP_DEBUG=true
-APP_URL=http://localhost:8000
+APP_URL=http://localhost
 
 DB_CONNECTION=mysql
 DB_HOST=db
@@ -84,15 +84,15 @@ docker-compose up -d
 ### 4. データベースのマイグレーション
 
 ```bash
-docker-compose exec backend php artisan migrate
+docker-compose exec app php artisan migrate
 ```
 
 ### 5. アプリケーションへのアクセス
 
-- **フロントエンド**: http://localhost:5173
-- **バックエンドAPI**: http://localhost:8000/api
+- **フロントエンド**: http://localhost
+- **バックエンドAPI**: http://localhost/api
 
-ブラウザで http://localhost:5173 を開くと、ゲームのターミナル画面が表示されます。
+ブラウザで http://localhost を開くと、ゲームのターミナル画面が表示されます。
 
 ## 🎮 ゲームの遊び方
 
@@ -127,7 +127,7 @@ docker-compose exec backend php artisan migrate
 
 ```bash
 # コンテナに入る
-docker-compose exec backend bash
+docker-compose exec app bash
 
 # マイグレーションの実行
 php artisan migrate
@@ -150,7 +150,7 @@ php artisan config:clear
 
 ```bash
 # コンテナに入る
-docker-compose exec frontend sh
+docker-compose exec app bash
 
 # 依存関係のインストール
 npm install
@@ -172,8 +172,7 @@ npm run build
 docker-compose logs -f
 
 # 特定のコンテナのログを表示
-docker-compose logs -f backend
-docker-compose logs -f frontend
+docker-compose logs -f app
 docker-compose logs -f db
 ```
 
@@ -234,7 +233,7 @@ ANTHROPIC_API_KEY=sk-ant-xxxxxxxxxxxxx
 
 ### AI統合の実装
 
-`backend/app/Services/AIService.php` にAI統合のテンプレートが用意されています。
+`src/app/Services/AIService.php` にAI統合のテンプレートが用意されています。
 
 実装例：
 ```php
@@ -254,7 +253,7 @@ eazy-rpg-game/
 ├── README.ja.md               # 日本語README (このファイル)
 ├── .gitignore                 # Git除外設定
 │
-├── backend/                   # Laravelバックエンド
+├── src/                       # Laravelバックエンド
 │   ├── app/
 │   │   ├── Http/
 │   │   │   └── Controllers/
@@ -290,8 +289,7 @@ eazy-rpg-game/
 
 ```bash
 # 使用中のポートを確認
-lsof -i :5173
-lsof -i :8000
+lsof -i :80
 lsof -i :3306
 
 # コンテナを停止
@@ -307,17 +305,17 @@ docker-compose down
 docker-compose restart db
 
 # マイグレーションを再実行
-docker-compose exec backend php artisan migrate:fresh
+docker-compose exec app php artisan migrate:fresh
 ```
 
 ### フロントエンドがAPIに接続できない
 
-1. `backend/resources/frontend/.env`ファイルを確認
+1. `src/resources/frontend/.env`ファイルを確認
 ```env
-VITE_API_URL=http://localhost:8000
+VITE_API_URL=
 ```
 
-2. CORS設定を確認（`backend/config/cors.php`）
+2. CORS設定を確認（`src/config/cors.php`）
 
 3. バックエンドが起動していることを確認
 ```bash
