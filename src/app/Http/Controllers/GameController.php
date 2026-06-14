@@ -13,12 +13,21 @@ class GameController extends Controller
 {
     private function getOrCreateSession(Request $request): GameSession
     {
-        $token = $request->session()->getId();
-        
-        return GameSession::firstOrCreate(
-            ['session_token' => $token],
-            ['game_data' => json_encode([])]
+        $user = $request->user();
+
+        $session = GameSession::firstOrCreate(
+            ['user_id' => $user->id],
+            [
+                'session_token' => $request->session()->getId(),
+                'game_data' => [],
+            ]
         );
+
+        if ($session->session_token !== $request->session()->getId()) {
+            $session->forceFill(['session_token' => $request->session()->getId()])->save();
+        }
+
+        return $session;
     }
 
     public function executeCommand(Request $request): JsonResponse
@@ -71,7 +80,8 @@ class GameController extends Controller
     public function startNewGame(Request $request): JsonResponse
     {
         $session = $this->getOrCreateSession($request);
-        $name = $request->input('player_name', 'Player');
+        $user = $request->user();
+        $name = $user->name;
 
         // Reset existing session if any
         if ($session->player_id) {
@@ -79,6 +89,7 @@ class GameController extends Controller
         }
 
         $player = Player::create([
+            'user_id' => $user->id,
             'name' => $name,
             'level' => 1,
             'hp' => 100,
@@ -166,15 +177,30 @@ class GameController extends Controller
         $action = $parts[0] ?? '';
 
         // Handle start command specially if called via executeCommand
-        if (($action === 'start' || $action === 'はじめる') && isset($parts[1])) {
-             // Reuse the public logic but return array format expected by processCommand
-             $request = new Request(['player_name' => $parts[1]]);
-             $response = $this->startNewGame($request);
-             $data = $response->getData(true);
-             return [
-                 'success' => $data['success'],
-                 'message' => $data['message'],
-             ];
+        if ($action === 'start' || $action === 'はじめる') {
+            $user = $session->user;
+            $player = Player::create([
+                'user_id' => $user->id,
+                'name' => $user->name,
+                'level' => 1,
+                'hp' => 100,
+                'max_hp' => 100,
+                'mp' => 50,
+                'max_mp' => 50,
+                'attack' => 10,
+                'defense' => 5,
+                'experience' => 0,
+                'gold' => 100,
+            ]);
+
+            $session->player_id = $player->id;
+            $session->battle_id = null;
+            $session->save();
+
+            return [
+                'success' => true,
+                'message' => "{$user->name}の冒険が始まりました！",
+            ];
         }
 
         return match($action) {

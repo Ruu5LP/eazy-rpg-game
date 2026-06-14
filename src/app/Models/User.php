@@ -21,6 +21,10 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'google_id',
+        'two_factor_code_hash',
+        'two_factor_expires_at',
+        'two_factor_attempts',
     ];
 
     /**
@@ -42,6 +46,8 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'two_factor_expires_at' => 'datetime',
+            'two_factor_attempts' => 'integer',
             'password' => 'hashed',
         ];
     }

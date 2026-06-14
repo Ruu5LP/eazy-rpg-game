@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 interface Message {
   type: 'output' | 'error' | 'system' | 'action';
@@ -13,10 +14,13 @@ interface MenuOption {
 }
 
 interface MenuRPGProps {
+  userName: string;
   onCommand: (command: string) => Promise<string>;
+  onLogout: () => Promise<void>;
 }
 
-const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
+const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([
     {
       type: 'system',
@@ -32,8 +36,6 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [inBattle, setInBattle] = useState(false);
-  const [playerName, setPlayerName] = useState('');
-  const [showNameInput, setShowNameInput] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -90,15 +92,12 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
   };
 
   const handleStartGame = () => {
-    setShowNameInput(true);
+    executeCommand('ゲーム開始', 'start');
   };
 
-  const handleNameSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!playerName.trim()) return;
-
-    setShowNameInput(false);
-    executeCommand(`ゲーム開始（${playerName}）`, `start ${playerName}`);
+  const handleLogout = async () => {
+    await onLogout();
+    navigate('/', { replace: true });
   };
 
   const getMessageColor = (type: Message['type']) => {
@@ -153,11 +152,16 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
             <h1 className="text-gray-800 text-xl font-bold flex items-center gap-2">
               <span>🎮</span> EASY RPG
             </h1>
-            {gameStarted && (
-              <div className={`px-3 py-1 rounded-full text-sm font-bold ${inBattle ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
-                {inBattle ? '⚔️ BATTLE MODE' : '🗺️ EXPLORE MODE'}
-              </div>
-            )}
+            <div className="flex items-center gap-2">
+              {gameStarted && (
+                <div className={`px-3 py-1 rounded-full text-sm font-bold ${inBattle ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {inBattle ? '⚔️ BATTLE MODE' : '🗺️ EXPLORE MODE'}
+                </div>
+              )}
+              <button type="button" className="btn-secondary px-3 py-2 text-sm" onClick={handleLogout}>
+                Logout
+              </button>
+            </div>
           </div>
 
           {/* Status Bar */}
@@ -165,7 +169,7 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
             <div className="px-6 py-4 grid grid-cols-2 md:grid-cols-4 gap-4 bg-white">
               <div className="flex flex-col">
                 <span className="text-xs text-gray-500 uppercase font-bold">Name</span>
-                <span className="text-lg font-bold text-gray-800">{playerName || 'HERO'}</span>
+                <span className="text-lg font-bold text-gray-800">{userName}</span>
               </div>
               <div className="flex flex-col">
                 <span className="text-xs text-gray-500 uppercase font-bold">Level</span>
@@ -213,53 +217,6 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ onCommand }) => {
             <div ref={messagesEndRef} />
           </div>
         </div>
-
-        {/* Name Input Modal */}
-        {showNameInput && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="game-card bg-white p-8 max-w-md w-full shadow-2xl animate-fade-in">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2 text-center">
-                Welcome, Hero!
-              </h2>
-              <p className="text-gray-500 text-center mb-6">
-                冒険を始める前に、あなたの名前を教えてください。
-              </p>
-
-              <form onSubmit={handleNameSubmit}>
-                <div className="mb-6">
-                  <label className="block text-sm font-bold text-gray-700 mb-2">
-                    Player Name
-                  </label>
-                  <input
-                    type="text"
-                    value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all text-lg"
-                    placeholder="Enter your name..."
-                    autoFocus
-                    maxLength={20}
-                  />
-                </div>
-                <div className="flex gap-4">
-                  <button
-                    type="submit"
-                    disabled={!playerName.trim()}
-                    className="btn-primary flex-1"
-                  >
-                    Start Adventure
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowNameInput(false)}
-                    className="btn-secondary flex-1"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
 
         {/* Menu Area */}
         <div className="game-card bg-white p-6 flex-shrink-0">
