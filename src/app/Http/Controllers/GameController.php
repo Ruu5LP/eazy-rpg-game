@@ -354,9 +354,22 @@ class GameController extends Controller
         $player = Player::find($session->player_id);
         $enemy = $battle->enemy;
 
+        if ($player->hp <= 0) {
+            $battle->is_active = false;
+            $battle->save();
+
+            $session->battle_id = null;
+            $session->save();
+
+            return [
+                'success' => false,
+                'message' => "倒されてしまった...\nゲームオーバー",
+            ];
+        }
+
         // Player attacks
         $damage = max(1, $player->attack - $enemy->defense + rand(-2, 2));
-        $battle->enemy_hp -= $damage;
+        $battle->enemy_hp = max(0, $battle->enemy_hp - $damage);
         
         $message = "{$player->name}の攻撃！\n{$enemy->name}に{$damage}のダメージ！\n";
 
@@ -384,7 +397,7 @@ class GameController extends Controller
 
         // Enemy attacks back
         $enemyDamage = max(1, $enemy->attack - $player->defense + rand(-2, 2));
-        $player->hp -= $enemyDamage;
+        $player->hp = max(0, $player->hp - $enemyDamage);
         $player->save();
 
         $battle->save();
@@ -397,6 +410,9 @@ class GameController extends Controller
         if ($player->hp <= 0) {
             $battle->is_active = false;
             $battle->save();
+
+            $session->battle_id = null;
+            $session->save();
             
             $message .= "\n倒されてしまった...\nゲームオーバー";
             
@@ -422,12 +438,32 @@ class GameController extends Controller
         }
 
         $battle = Battle::with('enemy')->find($session->battle_id);
+        if (!$battle || !$battle->is_active) {
+            return [
+                'success' => false,
+                'message' => "戦闘中ではありません。",
+            ];
+        }
+
         $player = Player::find($session->player_id);
         $enemy = $battle->enemy;
 
+        if ($player->hp <= 0) {
+            $battle->is_active = false;
+            $battle->save();
+
+            $session->battle_id = null;
+            $session->save();
+
+            return [
+                'success' => false,
+                'message' => "倒されてしまった...\nゲームオーバー",
+            ];
+        }
+
         // Reduced damage when defending
-        $enemyDamage = max(0, ($enemy->attack - $player->defense * 2) / 2 + rand(-1, 1));
-        $player->hp -= $enemyDamage;
+        $enemyDamage = (int) max(0, round(($enemy->attack - $player->defense * 2) / 2 + rand(-1, 1)));
+        $player->hp = max(0, $player->hp - $enemyDamage);
         $player->save();
 
         $message = "{$player->name}は防御姿勢を取った！\n";
@@ -437,6 +473,10 @@ class GameController extends Controller
         if ($player->hp <= 0) {
             $battle->is_active = false;
             $battle->save();
+
+            $session->battle_id = null;
+            $session->save();
+
             $message .= "\n倒されてしまった...\nゲームオーバー";
         }
 
