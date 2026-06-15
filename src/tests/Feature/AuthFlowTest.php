@@ -2,6 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Models\Battle;
+use App\Models\Enemy;
+use App\Models\GameSession;
+use App\Models\Player;
 use App\Models\User;
 use App\Notifications\TwoFactorCodeNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -120,6 +124,68 @@ class AuthFlowTest extends TestCase
         ]);
     }
 
+    public function test_attack_never_reduces_player_hp_below_zero(): void
+    {
+        $user = $this->verifiedUserWithStartedGame();
+        $player = Player::where('user_id', $user->id)->firstOrFail();
+        $session = GameSession::where('user_id', $user->id)->firstOrFail();
+
+        $player->forceFill(['hp' => 1])->save();
+        $enemy = Enemy::create([
+            'name' => 'オーバーキル',
+            'level' => 99,
+            'hp' => 999,
+            'max_hp' => 999,
+            'attack' => 999,
+            'defense' => 0,
+            'experience_reward' => 1,
+            'gold_reward' => 1,
+        ]);
+        $battle = Battle::create([
+            'player_id' => $player->id,
+            'enemy_id' => $enemy->id,
+            'enemy_hp' => $enemy->hp,
+            'is_active' => true,
+        ]);
+        $session->forceFill(['battle_id' => $battle->id])->save();
+
+        $this->postJson('/api/game/command', ['command' => 'attack'])->assertOk();
+
+        $this->assertSame(0, $player->refresh()->hp);
+        $this->assertNull($session->refresh()->battle_id);
+    }
+
+    public function test_defend_never_reduces_player_hp_below_zero(): void
+    {
+        $user = $this->verifiedUserWithStartedGame();
+        $player = Player::where('user_id', $user->id)->firstOrFail();
+        $session = GameSession::where('user_id', $user->id)->firstOrFail();
+
+        $player->forceFill(['hp' => 1])->save();
+        $enemy = Enemy::create([
+            'name' => 'ガード崩し',
+            'level' => 99,
+            'hp' => 999,
+            'max_hp' => 999,
+            'attack' => 999,
+            'defense' => 0,
+            'experience_reward' => 1,
+            'gold_reward' => 1,
+        ]);
+        $battle = Battle::create([
+            'player_id' => $player->id,
+            'enemy_id' => $enemy->id,
+            'enemy_hp' => $enemy->hp,
+            'is_active' => true,
+        ]);
+        $session->forceFill(['battle_id' => $battle->id])->save();
+
+        $this->postJson('/api/game/command', ['command' => 'defend'])->assertOk();
+
+        $this->assertSame(0, $player->refresh()->hp);
+        $this->assertNull($session->refresh()->battle_id);
+    }
+
     private function sentTwoFactorCodeFor(User $user): string
     {
         $code = null;
@@ -137,5 +203,25 @@ class AuthFlowTest extends TestCase
         $this->assertNotNull($code);
 
         return $code;
+    }
+
+    private function verifiedUserWithStartedGame(): User
+    {
+        Notification::fake();
+
+        $this->postJson('/api/auth/register', [
+            'name' => 'Hero',
+            'email' => 'hero-' . uniqid() . '@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertCreated();
+
+        $user = User::where('name', 'Hero')->latest('id')->firstOrFail();
+        $code = $this->sentTwoFactorCodeFor($user);
+
+        $this->postJson('/api/auth/verify-2fa', ['code' => $code])->assertOk();
+        $this->postJson('/api/game/new')->assertOk();
+
+        return $user;
     }
 }
