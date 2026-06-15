@@ -29,6 +29,20 @@ export interface CommandResponse {
   game_state?: GameState;
 }
 
+export interface AuthUser {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface AuthResponse {
+  requires_2fa?: boolean;
+  email?: string;
+  message: string;
+  user?: AuthUser;
+  dev_two_factor_code?: string | null;
+}
+
 class ApiService {
   private async request<T>(
     endpoint: string,
@@ -37,6 +51,7 @@ class ApiService {
   ): Promise<T> {
     const options: RequestInit = {
       method,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -50,10 +65,44 @@ class ApiService {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
 
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorBody = await response.json().catch(() => null);
+      const message =
+        errorBody?.message ||
+        Object.values(errorBody?.errors || {}).flat().join('\n') ||
+        `HTTP error! status: ${response.status}`;
+      throw new Error(message);
     }
 
     return response.json();
+  }
+
+  async register(payload: {
+    name: string;
+    email: string;
+    password: string;
+    password_confirmation: string;
+  }): Promise<AuthResponse> {
+    return this.request<AuthResponse>('/api/auth/register', 'POST', payload);
+  }
+
+  async login(payload: { email: string; password: string }): Promise<AuthResponse> {
+    return this.request<AuthResponse>('/api/auth/login', 'POST', payload);
+  }
+
+  async verifyTwoFactor(code: string): Promise<AuthResponse> {
+    return this.request<AuthResponse>('/api/auth/verify-2fa', 'POST', { code });
+  }
+
+  async logout(): Promise<{ message: string }> {
+    return this.request<{ message: string }>('/api/auth/logout', 'POST');
+  }
+
+  async me(): Promise<{ user: AuthUser }> {
+    return this.request<{ user: AuthUser }>('/api/auth/me');
+  }
+
+  async getGoogleRedirect(): Promise<{ url: string }> {
+    return this.request<{ url: string }>('/api/auth/google/redirect');
   }
 
   async executeCommand(command: string): Promise<CommandResponse> {
@@ -64,8 +113,8 @@ class ApiService {
     return this.request<GameState>('/api/game/state');
   }
 
-  async startNewGame(playerName: string): Promise<CommandResponse> {
-    return this.request<CommandResponse>('/api/game/new', 'POST', { player_name: playerName });
+  async startNewGame(): Promise<CommandResponse> {
+    return this.request<CommandResponse>('/api/game/new', 'POST');
   }
 
   async saveGame(): Promise<CommandResponse> {

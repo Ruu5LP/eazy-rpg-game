@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class GameSession extends Model
 {
     protected $fillable = [
+        'user_id',
         'session_token',
         'player_id',
         'battle_id',
@@ -21,6 +22,11 @@ class GameSession extends Model
     public function player(): BelongsTo
     {
         return $this->belongsTo(Player::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function battle(): BelongsTo

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiService } from '../services/api';
 
 type Panel = 'howto' | 'records' | 'settings' | 'credits';
 type Difficulty = 'Casual' | 'Normal' | 'Hard';
@@ -8,14 +9,26 @@ const TitleScreen: React.FC = () => {
   const [activePanel, setActivePanel] = useState<Panel>('howto');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [difficulty, setDifficulty] = useState<Difficulty>('Normal');
+  const [isStarting, setIsStarting] = useState(false);
   const navigate = useNavigate();
 
   const hasSaveData = useMemo(() => {
     return Boolean(window.localStorage.getItem('easy-rpg-save'));
   }, []);
 
-  const handleStart = () => {
-    navigate('/game');
+  const handleStart = async () => {
+    if (isStarting) return;
+
+    setIsStarting(true);
+
+    try {
+      await apiService.me();
+      navigate('/game');
+    } catch {
+      navigate('/auth?redirect=/game');
+    } finally {
+      setIsStarting(false);
+    }
   };
 
   const panelButtonClass = (panel: Panel) =>
@@ -49,7 +62,7 @@ const TitleScreen: React.FC = () => {
 
         <div className="title-grid">
           <nav className="title-menu" aria-label="Main menu">
-            <button className="title-action title-action-primary" onClick={handleStart}>
+            <button className="title-action title-action-primary" onClick={handleStart} disabled={isStarting}>
               <span className="action-mark">▶</span>
               <span>
                 <strong>GAME START</strong>

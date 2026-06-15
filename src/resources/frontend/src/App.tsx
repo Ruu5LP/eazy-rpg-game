@@ -1,12 +1,21 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import MenuRPG from './components/MenuRPG';
 import TitleScreen from './components/TitleScreen';
-import { apiService } from './services/api';
+import AuthPage from './components/AuthPage';
+import ProtectedRoute from './components/ProtectedRoute';
+import { apiService, type AuthUser } from './services/api';
 
 function App() {
+  const handleLogout = async () => {
+    await apiService.logout();
+  };
+
   const handleCommand = async (command: string): Promise<string> => {
     try {
-      const response = await apiService.executeCommand(command);
+      const response =
+        command === 'start'
+          ? await apiService.startNewGame()
+          : await apiService.executeCommand(command);
       return response.message;
     } catch (error) {
       if (error instanceof Error) {
@@ -20,7 +29,17 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<TitleScreen />} />
-        <Route path="/game" element={<MenuRPG onCommand={handleCommand} />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route
+          path="/game"
+          element={
+            <ProtectedRoute>
+              {(user: AuthUser) => (
+                <MenuRPG userName={user.name} onCommand={handleCommand} onLogout={handleLogout} />
+              )}
+            </ProtectedRoute>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
