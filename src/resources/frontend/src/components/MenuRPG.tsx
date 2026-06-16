@@ -179,10 +179,15 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
   const hp = Math.max(0, Math.min(player?.hp ?? maxHp, maxHp));
   const level = player?.level ?? 1;
   const experience = Math.max(player?.experience ?? 0, 0);
-  const nextLevelExperience = Math.max(level * 100, 100);
-  const experienceProgress = experience % nextLevelExperience;
+  const currentLevelStartExperience = Math.max((level - 1) * 100, 0);
+  const nextLevelTotalExperience = Math.max(level * 100, 100);
+  const experienceToNextLevel = nextLevelTotalExperience - currentLevelStartExperience;
+  const experienceProgress = Math.max(
+    0,
+    Math.min(experience - currentLevelStartExperience, experienceToNextLevel),
+  );
   const hpPercent = getPercent(hp, maxHp);
-  const expPercent = getPercent(experienceProgress, nextLevelExperience);
+  const expPercent = getPercent(experienceProgress, experienceToNextLevel);
   const hpRegen = gameState?.hpRegen;
   const secondsSinceState = Math.floor((regenTick - gameStateReceivedAtRef.current) / 1000);
   const secondsUntilNextRegen = hpRegen?.is_active
@@ -497,9 +502,9 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
             <div className="game-vital-row">
               <div className="game-vital-label">
                 <span>EXP</span>
-                <strong>{experienceProgress}/{nextLevelExperience}</strong>
+                <strong>{experienceProgress}/{experienceToNextLevel}</strong>
               </div>
-              <div className="game-meter" aria-label={`Experience ${experienceProgress}/${nextLevelExperience}`}>
+              <div className="game-meter" aria-label={`Experience ${experienceProgress}/${experienceToNextLevel}`}>
                 <div className="game-meter-fill game-meter-exp" style={{ width: `${expPercent}%` }} />
               </div>
             </div>

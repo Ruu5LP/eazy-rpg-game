@@ -225,6 +225,8 @@ class AuthFlowTest extends TestCase
 
         $player->forceFill([
             'level' => 1,
+            'hp' => 50,
+            'mp' => 20,
             'experience' => 90,
             'attack' => 999,
         ])->save();
@@ -251,13 +253,27 @@ class AuthFlowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('game_state.player.level', 2)
-            ->assertJsonPath('game_state.player.experience', 100);
+            ->assertJsonPath('game_state.player.experience', 100)
+            ->assertJsonPath('game_state.player.hp', 120)
+            ->assertJsonPath('game_state.player.max_hp', 120)
+            ->assertJsonPath('game_state.player.mp', 60)
+            ->assertJsonPath('game_state.player.max_mp', 60)
+            ->assertJsonPath('game_state.player.attack', 1004)
+            ->assertJsonPath('game_state.player.defense', 8);
 
         $this->assertStringContainsString('レベルアップ！ Lv.2になった！', $response->json('message'));
+        $this->assertStringContainsString("ステータスアップ！\n最大HP +20\n最大MP +10\n攻撃力 +5\n防御力 +3", $response->json('message'));
+        $this->assertStringContainsString('HPとMPが全回復した！', $response->json('message'));
 
         $player->refresh();
         $this->assertSame(2, $player->level);
         $this->assertSame(100, $player->experience);
+        $this->assertSame(120, $player->max_hp);
+        $this->assertSame(120, $player->hp);
+        $this->assertSame(60, $player->max_mp);
+        $this->assertSame(60, $player->mp);
+        $this->assertSame(1004, $player->attack);
+        $this->assertSame(8, $player->defense);
     }
 
     public function test_player_can_gain_multiple_levels_from_one_reward(): void
@@ -268,6 +284,8 @@ class AuthFlowTest extends TestCase
 
         $player->forceFill([
             'level' => 1,
+            'hp' => 50,
+            'mp' => 20,
             'experience' => 290,
             'attack' => 999,
         ])->save();
@@ -294,13 +312,27 @@ class AuthFlowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('game_state.player.level', 4)
-            ->assertJsonPath('game_state.player.experience', 310);
+            ->assertJsonPath('game_state.player.experience', 310)
+            ->assertJsonPath('game_state.player.hp', 160)
+            ->assertJsonPath('game_state.player.max_hp', 160)
+            ->assertJsonPath('game_state.player.mp', 80)
+            ->assertJsonPath('game_state.player.max_mp', 80)
+            ->assertJsonPath('game_state.player.attack', 1014)
+            ->assertJsonPath('game_state.player.defense', 14);
 
         $this->assertStringContainsString('レベルアップ！ Lv.4になった！', $response->json('message'));
+        $this->assertStringContainsString("ステータスアップ！\n最大HP +60\n最大MP +30\n攻撃力 +15\n防御力 +9", $response->json('message'));
+        $this->assertStringContainsString('HPとMPが全回復した！', $response->json('message'));
 
         $player->refresh();
         $this->assertSame(4, $player->level);
         $this->assertSame(310, $player->experience);
+        $this->assertSame(160, $player->max_hp);
+        $this->assertSame(160, $player->hp);
+        $this->assertSame(80, $player->max_mp);
+        $this->assertSame(80, $player->mp);
+        $this->assertSame(1014, $player->attack);
+        $this->assertSame(14, $player->defense);
     }
 
     public function test_player_can_recover_hp_with_potion(): void

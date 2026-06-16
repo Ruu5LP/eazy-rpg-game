@@ -18,6 +18,12 @@ class GameController extends Controller
     private const NATURAL_REGEN_AMOUNT = 3;
     private const NATURAL_REGEN_INTERVAL_SECONDS = 30;
     private const INN_COST = 30;
+    private const LEVEL_UP_STAT_GAINS = [
+        'max_hp' => 20,
+        'max_mp' => 10,
+        'attack' => 5,
+        'defense' => 3,
+    ];
 
     private function getOrCreateSession(Request $request): GameSession
     {
@@ -400,7 +406,7 @@ class GameController extends Controller
         if ($battle->enemy_hp <= 0) {
             $player->experience += $enemy->experience_reward;
             $player->gold += $enemy->gold_reward;
-            $levelUps = $this->applyLevelUps($player);
+            $levelUpResult = $this->applyLevelUps($player);
             $player->save();
 
             $battle->is_active = false;
@@ -412,8 +418,10 @@ class GameController extends Controller
             $message .= "\n{$enemy->name}を倒した！\n";
             $message .= "経験値 +{$enemy->experience_reward}\n";
             $message .= "ゴールド +{$enemy->gold_reward}\n";
-            if ($levelUps > 0) {
+            if ($levelUpResult['levels'] > 0) {
                 $message .= "レベルアップ！ Lv.{$player->level}になった！\n";
+                $message .= $this->formatLevelUpStatGains($levelUpResult['stat_gains']) . "\n";
+                $message .= "HPとMPが全回復した！\n";
             }
 
             return [
@@ -450,7 +458,10 @@ class GameController extends Controller
         ];
     }
 
-    private function applyLevelUps(Player $player): int
+    /**
+     * @return array{levels: int, stat_gains: array{max_hp: int, max_mp: int, attack: int, defense: int}}
+     */
+    private function applyLevelUps(Player $player): array
     {
         $levelUps = 0;
         $player->level = max(1, $player->level);
@@ -460,7 +471,38 @@ class GameController extends Controller
             $levelUps++;
         }
 
-        return $levelUps;
+        $statGains = [
+            'max_hp' => self::LEVEL_UP_STAT_GAINS['max_hp'] * $levelUps,
+            'max_mp' => self::LEVEL_UP_STAT_GAINS['max_mp'] * $levelUps,
+            'attack' => self::LEVEL_UP_STAT_GAINS['attack'] * $levelUps,
+            'defense' => self::LEVEL_UP_STAT_GAINS['defense'] * $levelUps,
+        ];
+
+        if ($levelUps > 0) {
+            $player->max_hp += $statGains['max_hp'];
+            $player->max_mp += $statGains['max_mp'];
+            $player->attack += $statGains['attack'];
+            $player->defense += $statGains['defense'];
+            $player->hp = $player->max_hp;
+            $player->mp = $player->max_mp;
+        }
+
+        return [
+            'levels' => $levelUps,
+            'stat_gains' => $statGains,
+        ];
+    }
+
+    /**
+     * @param array{max_hp: int, max_mp: int, attack: int, defense: int} $statGains
+     */
+    private function formatLevelUpStatGains(array $statGains): string
+    {
+        return "ステータスアップ！\n"
+            . "最大HP +{$statGains['max_hp']}\n"
+            . "最大MP +{$statGains['max_mp']}\n"
+            . "攻撃力 +{$statGains['attack']}\n"
+            . "防御力 +{$statGains['defense']}";
     }
 
     private function defend(GameSession $session): array
