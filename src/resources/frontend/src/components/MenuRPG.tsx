@@ -237,7 +237,6 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
       ]);
       setGameStarted(true);
       setInBattle(false);
-      setLocation('adventure');
       applyCommandResponse(response);
       setView('playing');
     } catch (error) {

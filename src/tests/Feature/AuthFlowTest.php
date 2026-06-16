@@ -141,12 +141,16 @@ class AuthFlowTest extends TestCase
 
         $this->postJson('/api/game/new')
             ->assertOk()
-            ->assertJsonPath('game_state.player.name', 'Hero');
+            ->assertJsonPath('game_state.player.name', 'Hero')
+            ->assertJsonPath('game_state.location', 'town');
 
         $this->assertDatabaseHas('players', [
             'user_id' => $user->id,
             'name' => 'Hero',
         ]);
+
+        $session = GameSession::where('user_id', $user->id)->firstOrFail();
+        $this->assertSame('town', data_get($session->game_data, 'location'));
     }
 
     public function test_attack_never_reduces_player_hp_below_zero(): void

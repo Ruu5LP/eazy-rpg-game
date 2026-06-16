@@ -129,7 +129,7 @@ class GameController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => "{$name}の冒険が始まりました！",
+            'message' => "{$name}の冒険が始まりました！\nはじまりの街から旅支度を整えましょう。",
             'game_state' => $this->getGameStateData($session),
         ]);
     }
@@ -229,7 +229,7 @@ class GameController extends Controller
 
             return [
                 'success' => true,
-                'message' => "{$user->name}の冒険が始まりました！",
+                'message' => "{$user->name}の冒険が始まりました！\nはじまりの街から旅支度を整えましょう。",
             ];
         }
 
@@ -801,7 +801,7 @@ class GameController extends Controller
     private function initialGameData(): array
     {
         return [
-            'location' => 'adventure',
+            'location' => 'town',
             'items' => [
                 'potion' => self::INITIAL_POTIONS,
             ],
