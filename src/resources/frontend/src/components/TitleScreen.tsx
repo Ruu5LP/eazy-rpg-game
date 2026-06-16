@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiService } from '../services/api';
 
 type Panel = 'howto' | 'records' | 'settings' | 'credits';
 type Difficulty = 'Casual' | 'Normal' | 'Hard';
@@ -20,15 +19,8 @@ const TitleScreen: React.FC = () => {
     if (isStarting) return;
 
     setIsStarting(true);
-
-    try {
-      await apiService.me();
-      navigate('/game');
-    } catch {
-      navigate('/auth?redirect=/game');
-    } finally {
-      setIsStarting(false);
-    }
+    navigate('/game');
+    setIsStarting(false);
   };
 
   const panelButtonClass = (panel: Panel) =>

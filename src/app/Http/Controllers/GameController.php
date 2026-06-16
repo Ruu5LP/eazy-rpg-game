@@ -8,9 +8,17 @@ use App\Models\Player;
 use App\Models\Enemy;
 use App\Models\Battle;
 use App\Models\GameSession;
+use Carbon\Carbon;
 
 class GameController extends Controller
 {
+    private const INITIAL_POTIONS = 3;
+    private const POTION_HEAL_AMOUNT = 30;
+    private const REST_HEAL_AMOUNT = 10;
+    private const NATURAL_REGEN_AMOUNT = 3;
+    private const NATURAL_REGEN_INTERVAL_SECONDS = 30;
+    private const INN_COST = 30;
+
     private function getOrCreateSession(Request $request): GameSession
     {
         $user = $request->user();
@@ -37,6 +45,7 @@ class GameController extends Controller
 
         try {
             $result = $this->processCommand($command, $session);
+            $result['game_state'] ??= $this->getGameStateData($session->refresh());
             return response()->json($result);
         } catch (\Exception $e) {
             return response()->json([
@@ -50,6 +59,9 @@ class GameController extends Controller
     {
         $session = $this->getOrCreateSession($request);
         
+        $this->applyTimedNaturalRegen($session);
+        $session->refresh();
+
         $player = null;
         if ($session->player_id) {
             $player = Player::find($session->player_id);
@@ -74,6 +86,8 @@ class GameController extends Controller
             'player' => $player,
             'inBattle' => $inBattle,
             'currentEnemy' => $currentEnemy,
+            'location' => $this->currentLocation($session),
+            'hpRegen' => $this->getHpRegenData($session, $player),
         ]);
     }
 
@@ -104,6 +118,7 @@ class GameController extends Controller
 
         $session->player_id = $player->id;
         $session->battle_id = null;
+        $session->game_data = $this->initialGameData();
         $session->save();
 
         return response()->json([
@@ -143,6 +158,9 @@ class GameController extends Controller
     // Helper to get state data array
     private function getGameStateData(GameSession $session): array
     {
+        $this->applyTimedNaturalRegen($session);
+        $session->refresh();
+
         $player = null;
         if ($session->player_id) {
             $player = Player::find($session->player_id);
@@ -167,6 +185,8 @@ class GameController extends Controller
             'player' => $player,
             'inBattle' => $inBattle,
             'currentEnemy' => $currentEnemy,
+            'location' => $this->currentLocation($session),
+            'hpRegen' => $this->getHpRegenData($session, $player),
         ];
     }
 
@@ -175,6 +195,9 @@ class GameController extends Controller
     {
         $parts = explode(' ', $command);
         $action = $parts[0] ?? '';
+        if ($action === 'use' && ($parts[1] ?? '') === 'potion') {
+            $action = 'use_potion';
+        }
 
         // Handle start command specially if called via executeCommand
         if ($action === 'start' || $action === 'はじめる') {
@@ -195,6 +218,7 @@ class GameController extends Controller
 
             $session->player_id = $player->id;
             $session->battle_id = null;
+            $session->game_data = $this->initialGameData();
             $session->save();
 
             return [
@@ -211,6 +235,9 @@ class GameController extends Controller
             'flee', 'にげる' => $this->flee($session),
             'explore', 'たんさく' => $this->explore($session),
             'items', 'アイテム' => $this->showItems($session),
+            'potion', 'use_potion', 'use-potion', 'heal' => $this->usePotion($session),
+            'rest' => $this->rest($session),
+            'inn', 'town' => $this->stayAtInn($session),
             default => [
                 'success' => false,
                 'message' => "不明なコマンド: {$command}\n'help' でコマンド一覧を表示します。"
@@ -257,6 +284,7 @@ class GameController extends Controller
         $message .= "レベル: {$player->level}\n";
         $message .= "HP: {$player->hp}/{$player->max_hp}\n";
         $message .= "MP: {$player->mp}/{$player->max_mp}\n";
+        $message .= "ポーション: " . $this->potionCount($session) . "\n";
         $message .= "攻撃力: {$player->attack}\n";
         $message .= "防御力: {$player->defense}\n";
         $message .= "経験値: {$player->experience}\n";
@@ -297,7 +325,7 @@ class GameController extends Controller
         }
 
         $player = Player::find($session->player_id);
-        
+
         // Create or get a random enemy
         $enemyTypes = [
             ['name' => 'スライム', 'level' => 1, 'hp' => 30, 'attack' => 5, 'defense' => 2, 'exp' => 10, 'gold' => 20],
@@ -326,7 +354,7 @@ class GameController extends Controller
         ]);
 
         $session->battle_id = $battle->id;
-        $session->save();
+        $this->setLocation($session, 'adventure');
 
         return [
             'success' => true,
@@ -355,15 +383,10 @@ class GameController extends Controller
         $enemy = $battle->enemy;
 
         if ($player->hp <= 0) {
-            $battle->is_active = false;
-            $battle->save();
-
-            $session->battle_id = null;
-            $session->save();
-
+            $this->returnDefeatedPlayerToTown($session, $battle);
             return [
                 'success' => false,
-                'message' => "倒されてしまった...\nゲームオーバー",
+                'message' => "倒されてしまった...\n街へ戻りました。宿屋で回復できます。",
             ];
         }
 
@@ -377,6 +400,7 @@ class GameController extends Controller
         if ($battle->enemy_hp <= 0) {
             $player->experience += $enemy->experience_reward;
             $player->gold += $enemy->gold_reward;
+            $levelUps = $this->applyLevelUps($player);
             $player->save();
 
             $battle->is_active = false;
@@ -388,6 +412,9 @@ class GameController extends Controller
             $message .= "\n{$enemy->name}を倒した！\n";
             $message .= "経験値 +{$enemy->experience_reward}\n";
             $message .= "ゴールド +{$enemy->gold_reward}\n";
+            if ($levelUps > 0) {
+                $message .= "レベルアップ！ Lv.{$player->level}になった！\n";
+            }
 
             return [
                 'success' => true,
@@ -408,13 +435,8 @@ class GameController extends Controller
 
         // Check if player is defeated
         if ($player->hp <= 0) {
-            $battle->is_active = false;
-            $battle->save();
-
-            $session->battle_id = null;
-            $session->save();
-            
-            $message .= "\n倒されてしまった...\nゲームオーバー";
+            $this->returnDefeatedPlayerToTown($session, $battle);
+            $message .= "\n倒されてしまった...\n街へ戻りました。宿屋で回復できます。";
             
             return [
                 'success' => true,
@@ -426,6 +448,19 @@ class GameController extends Controller
             'success' => true,
             'message' => $message,
         ];
+    }
+
+    private function applyLevelUps(Player $player): int
+    {
+        $levelUps = 0;
+        $player->level = max(1, $player->level);
+
+        while ($player->experience >= $player->level * 100) {
+            $player->level++;
+            $levelUps++;
+        }
+
+        return $levelUps;
     }
 
     private function defend(GameSession $session): array
@@ -449,15 +484,10 @@ class GameController extends Controller
         $enemy = $battle->enemy;
 
         if ($player->hp <= 0) {
-            $battle->is_active = false;
-            $battle->save();
-
-            $session->battle_id = null;
-            $session->save();
-
+            $this->returnDefeatedPlayerToTown($session, $battle);
             return [
                 'success' => false,
-                'message' => "倒されてしまった...\nゲームオーバー",
+                'message' => "倒されてしまった...\n街へ戻りました。宿屋で回復できます。",
             ];
         }
 
@@ -471,13 +501,8 @@ class GameController extends Controller
         $message .= "\nプレイヤーHP: {$player->hp}/{$player->max_hp}\n";
 
         if ($player->hp <= 0) {
-            $battle->is_active = false;
-            $battle->save();
-
-            $session->battle_id = null;
-            $session->save();
-
-            $message .= "\n倒されてしまった...\nゲームオーバー";
+            $this->returnDefeatedPlayerToTown($session, $battle);
+            $message .= "\n倒されてしまった...\n街へ戻りました。宿屋で回復できます。";
         }
 
         return [
@@ -519,7 +544,251 @@ class GameController extends Controller
 
         return [
             'success' => true,
-            'message' => "=== アイテム ===\n\nアイテムシステムは現在開発中です。\n今後のアップデートをお楽しみに！",
+            'message' => "=== アイテム ===\n\nポーション: " . $this->potionCount($session) . "個\n効果: HPを" . self::POTION_HEAL_AMOUNT . "回復\n使い方: 'potion' または 'use potion'",
         ];
+    }
+
+    private function usePotion(GameSession $session): array
+    {
+        if (!$session->player_id) {
+            return [
+                'success' => false,
+                'message' => 'ゲームが開始されていません。',
+            ];
+        }
+
+        $player = Player::find($session->player_id);
+        if (!$player) {
+            return [
+                'success' => false,
+                'message' => 'プレイヤーが見つかりません。',
+            ];
+        }
+
+        if ($this->potionCount($session) <= 0) {
+            return [
+                'success' => false,
+                'message' => 'ポーションがありません。Goldがあれば街へ戻って宿屋に泊まれます。',
+            ];
+        }
+
+        if ($player->hp >= $player->max_hp) {
+            return [
+                'success' => false,
+                'message' => 'HPはすでに満タンです。',
+            ];
+        }
+
+        $healed = $this->healPlayer($player, self::POTION_HEAL_AMOUNT);
+        $this->setPotionCount($session, $this->potionCount($session) - 1);
+
+        return [
+            'success' => true,
+            'message' => "ポーションを使った！\nHPが{$healed}回復した。\nHP: {$player->hp}/{$player->max_hp}\n残りポーション: " . $this->potionCount($session),
+        ];
+    }
+
+    private function rest(GameSession $session): array
+    {
+        if (!$session->player_id) {
+            return [
+                'success' => false,
+                'message' => 'ゲームが開始されていません。',
+            ];
+        }
+
+        if ($this->hasActiveBattle($session)) {
+            return [
+                'success' => false,
+                'message' => '戦闘中は休めません。ポーションを使うか、先に逃げてください。',
+            ];
+        }
+
+        $player = Player::find($session->player_id);
+        if ($player->hp <= 0) {
+            return [
+                'success' => false,
+                'message' => '倒れているため休めません。街へ戻って宿屋に泊まってください。',
+            ];
+        }
+
+        $healed = $this->healPlayer($player, self::REST_HEAL_AMOUNT);
+
+        return [
+            'success' => true,
+            'message' => $healed > 0
+                ? "少し休んで自然回復した。\nHPが{$healed}回復した。\nHP: {$player->hp}/{$player->max_hp}"
+                : 'HPはすでに満タンです。',
+        ];
+    }
+
+    private function stayAtInn(GameSession $session): array
+    {
+        if (!$session->player_id) {
+            return [
+                'success' => false,
+                'message' => 'ゲームが開始されていません。',
+            ];
+        }
+
+        if ($this->hasActiveBattle($session)) {
+            return [
+                'success' => false,
+                'message' => '戦闘中は街へ戻れません。先に逃げてください。',
+            ];
+        }
+
+        $player = Player::find($session->player_id);
+        if ($player->gold < self::INN_COST) {
+            return [
+                'success' => false,
+                'message' => "Goldが足りません。宿屋には " . self::INN_COST . "G 必要です。\n所持Gold: {$player->gold}G",
+            ];
+        }
+
+        $healed = max(0, $player->max_hp - $player->hp);
+        $player->gold -= self::INN_COST;
+        $player->hp = $player->max_hp;
+        $player->mp = $player->max_mp;
+        $player->save();
+        $this->setLocation($session, 'town');
+
+        return [
+            'success' => true,
+            'message' => "街へ戻り、宿屋に泊まった。\n" . self::INN_COST . "G を支払い、HPとMPが全回復した。\nHP回復量: {$healed}\nGold: {$player->gold}G",
+        ];
+    }
+
+    private function healPlayer(Player $player, int $amount): int
+    {
+        $before = $player->hp;
+        $player->hp = min($player->max_hp, $player->hp + $amount);
+        $player->save();
+
+        return $player->hp - $before;
+    }
+
+    private function applyTimedNaturalRegen(GameSession $session): void
+    {
+        if (!$session->player_id) {
+            return;
+        }
+
+        $player = Player::find($session->player_id);
+        if (!$player) {
+            return;
+        }
+
+        $now = now();
+        $lastRegenAt = $this->lastNaturalRegenAt($session) ?? $now;
+
+        if ($player->hp <= 0 || $player->hp >= $player->max_hp) {
+            $this->setLastNaturalRegenAt($session, $now);
+            return;
+        }
+
+        $elapsedSeconds = max(0, $lastRegenAt->diffInSeconds($now));
+        $ticks = intdiv($elapsedSeconds, self::NATURAL_REGEN_INTERVAL_SECONDS);
+
+        if ($ticks <= 0) {
+            return;
+        }
+
+        $this->healPlayer($player, $ticks * self::NATURAL_REGEN_AMOUNT);
+        $this->setLastNaturalRegenAt(
+            $session,
+            $lastRegenAt->copy()->addSeconds($ticks * self::NATURAL_REGEN_INTERVAL_SECONDS)
+        );
+    }
+
+    private function getHpRegenData(GameSession $session, ?Player $player): array
+    {
+        $lastRegenAt = $this->lastNaturalRegenAt($session) ?? now();
+        $secondsSinceLast = max(0, $lastRegenAt->diffInSeconds(now()));
+        $secondsUntilNext = self::NATURAL_REGEN_INTERVAL_SECONDS - ($secondsSinceLast % self::NATURAL_REGEN_INTERVAL_SECONDS);
+        $missingHp = $player ? max(0, $player->max_hp - $player->hp) : 0;
+        $ticksUntilFull = $missingHp > 0 ? (int) ceil($missingHp / self::NATURAL_REGEN_AMOUNT) : 0;
+
+        return [
+            'amount' => self::NATURAL_REGEN_AMOUNT,
+            'interval_seconds' => self::NATURAL_REGEN_INTERVAL_SECONDS,
+            'seconds_until_next' => $player && $player->hp > 0 && $missingHp > 0 ? $secondsUntilNext : 0,
+            'seconds_until_full' => $ticksUntilFull > 0
+                ? (($ticksUntilFull - 1) * self::NATURAL_REGEN_INTERVAL_SECONDS) + $secondsUntilNext
+                : 0,
+            'is_full' => $missingHp === 0,
+            'is_active' => (bool) ($player && $player->hp > 0 && $missingHp > 0),
+        ];
+    }
+
+    private function lastNaturalRegenAt(GameSession $session): ?Carbon
+    {
+        $lastRegenAt = data_get($session->game_data, 'natural_regen.last_at');
+
+        return $lastRegenAt ? Carbon::parse($lastRegenAt) : null;
+    }
+
+    private function setLastNaturalRegenAt(GameSession $session, Carbon $time): void
+    {
+        $gameData = $session->game_data ?? [];
+        data_set($gameData, 'natural_regen.last_at', $time->toIso8601String());
+        $session->game_data = $gameData;
+        $session->save();
+    }
+
+    private function hasActiveBattle(GameSession $session): bool
+    {
+        if (!$session->battle_id) {
+            return false;
+        }
+
+        return Battle::where('id', $session->battle_id)
+            ->where('is_active', true)
+            ->exists();
+    }
+
+    private function returnDefeatedPlayerToTown(GameSession $session, Battle $battle): void
+    {
+        $battle->is_active = false;
+        $battle->save();
+
+        $session->battle_id = null;
+        $this->setLocation($session, 'town');
+    }
+
+    private function initialGameData(): array
+    {
+        return [
+            'location' => 'adventure',
+            'items' => [
+                'potion' => self::INITIAL_POTIONS,
+            ],
+        ];
+    }
+
+    private function currentLocation(GameSession $session): string
+    {
+        return data_get($session->game_data, 'location', 'adventure');
+    }
+
+    private function setLocation(GameSession $session, string $location): void
+    {
+        $gameData = $session->game_data ?? [];
+        data_set($gameData, 'location', $location);
+        $session->game_data = $gameData;
+        $session->save();
+    }
+
+    private function potionCount(GameSession $session): int
+    {
+        return max(0, (int) data_get($session->game_data, 'items.potion', self::INITIAL_POTIONS));
+    }
+
+    private function setPotionCount(GameSession $session, int $count): void
+    {
+        $gameData = $session->game_data ?? [];
+        data_set($gameData, 'items.potion', max(0, $count));
+        $session->game_data = $gameData;
+        $session->save();
     }
 }

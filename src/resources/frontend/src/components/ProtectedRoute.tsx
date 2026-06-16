@@ -13,6 +13,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
 
   useEffect(() => {
     let isMounted = true;
+    const devAutoLogin = import.meta.env.VITE_DEV_AUTO_LOGIN === 'true';
 
     apiService
       .me()
@@ -21,7 +22,21 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
           setUser(response.user);
         }
       })
-      .catch(() => {
+      .catch(async () => {
+        if (devAutoLogin) {
+          try {
+            const response = await apiService.devLogin();
+
+            if (isMounted) {
+              setUser(response.user);
+            }
+
+            return;
+          } catch {
+            // Fall through to the normal auth redirect.
+          }
+        }
+
         if (isMounted) {
           setUser(null);
         }

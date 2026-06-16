@@ -113,6 +113,39 @@ class AuthController extends Controller
         return response()->json(['user' => $this->serializeUser($user)]);
     }
 
+    public function devLogin(Request $request): JsonResponse
+    {
+        if (!$this->isDevAutoLoginEnabled()) {
+            return response()->json(['message' => 'Development auto login is disabled.'], 404);
+        }
+
+        $email = (string) config('auth.dev_auto_login.email');
+        $name = (string) config('auth.dev_auto_login.name');
+
+        $user = User::firstOrCreate(
+            ['email' => $email],
+            [
+                'name' => $name,
+                'password' => Str::password(32),
+            ]
+        );
+
+        if (!$user->email_verified_at) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
+
+        $this->clearTwoFactorChallenge($user);
+        Auth::login($user);
+        $request->session()->regenerate();
+        $request->session()->put('two_factor_passed_at', now()->toISOString());
+        $request->session()->forget('pending_2fa_user_id');
+
+        return response()->json([
+            'user' => $this->serializeUser($user),
+            'message' => 'Development auto login complete.',
+        ]);
+    }
+
     public function logout(Request $request): JsonResponse
     {
         Auth::logout();
@@ -185,6 +218,12 @@ class AuthController extends Controller
         }
 
         return null;
+    }
+
+    private function isDevAutoLoginEnabled(): bool
+    {
+        return (bool) config('auth.dev_auto_login.enabled')
+            && !app()->environment('production');
     }
 
     private function clearTwoFactorChallenge(User $user): void

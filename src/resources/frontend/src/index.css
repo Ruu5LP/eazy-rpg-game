@@ -899,6 +899,11 @@ button {
   background: rgba(220, 38, 38, 0.24);
 }
 
+.game-mode-town {
+  color: #fef3c7;
+  background: rgba(245, 158, 11, 0.24);
+}
+
 .game-status-board {
   display: grid;
   grid-template-columns: minmax(260px, 0.8fr) minmax(420px, 1.2fr);
@@ -1000,6 +1005,24 @@ button {
 .game-meter-exp {
   background: linear-gradient(90deg, #0891b2, #2dd4bf);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24), 0 0 18px rgba(45, 212, 191, 0.16);
+}
+
+.game-regen-status {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin-top: -4px;
+  color: #bbf7d0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.game-regen-status span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
 }
 
 .game-log-panel {
@@ -1118,6 +1141,75 @@ button {
   background: rgba(30, 41, 59, 0.74);
 }
 
+.game-town-mode {
+  background:
+    linear-gradient(180deg, rgba(245, 158, 11, 0.08), transparent 44%),
+    rgba(15, 23, 42, 0.22);
+}
+
+.game-town-scene {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.75fr) minmax(0, 1.25fr);
+  gap: 14px;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.12);
+}
+
+.game-town-summary,
+.game-town-facilities article {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.54);
+}
+
+.game-town-summary {
+  display: grid;
+  align-content: center;
+  padding: 16px;
+}
+
+.game-town-summary span,
+.game-town-facilities span {
+  color: #facc15;
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.game-town-summary strong,
+.game-town-facilities strong {
+  display: block;
+  color: #ffffff;
+  line-height: 1.2;
+}
+
+.game-town-summary strong {
+  margin-top: 5px;
+  font-size: 1.3rem;
+}
+
+.game-town-summary p,
+.game-town-facilities p {
+  margin: 6px 0 0;
+  color: #cbd5e1;
+}
+
+.game-town-facilities {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.game-town-facilities article {
+  min-height: 110px;
+  padding: 14px;
+}
+
+.game-town-facilities strong {
+  margin-top: 5px;
+  font-size: 1rem;
+}
+
 .game-log-status,
 .game-log-help {
   animation: infoPanelPulse 520ms ease;
@@ -1180,6 +1272,10 @@ button {
   background: rgba(2, 6, 23, 0.22);
 }
 
+.game-command-panel-battle {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .game-command-button {
   min-height: 66px;
   border: 1px solid rgba(148, 163, 184, 0.28);
@@ -1228,6 +1324,16 @@ button {
   .game-command-panel {
     grid-template-columns: repeat(2, 1fr);
   }
+
+  .game-command-panel-battle {
+    grid-template-columns: repeat(5, minmax(112px, 1fr));
+    overflow-x: auto;
+  }
+
+  .game-town-scene,
+  .game-town-facilities {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 620px) {
@@ -1247,6 +1353,11 @@ button {
 
   .game-command-panel {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .game-command-panel-battle {
+    grid-template-columns: repeat(5, minmax(104px, 1fr));
+    overflow-x: auto;
   }
 
   .game-status-board {
@@ -1283,6 +1394,13 @@ button {
 
   .game-meter {
     height: 13px;
+  }
+
+  .game-regen-status {
+    grid-column: 2;
+    gap: 4px 8px;
+    margin-top: -2px;
+    font-size: 0.72rem;
   }
 
   .mode-card {

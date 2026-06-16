@@ -24,11 +24,27 @@ interface ModeOption {
 interface MenuRPGProps {
   userName: string;
   onCommand: (command: string) => Promise<CommandResponse>;
+  onRefreshGameState: () => Promise<GameState>;
   onLogout: () => Promise<void>;
 }
 
 type GameView = 'lobby' | 'playing';
-type CommandAnimation = 'attack' | 'defend' | 'flee' | 'explore' | 'status' | 'help' | null;
+type GameLocation = 'adventure' | 'town';
+type CommandAnimation =
+  | 'attack'
+  | 'defend'
+  | 'flee'
+  | 'explore'
+  | 'status'
+  | 'help'
+  | 'items'
+  | 'potion'
+  | 'rest'
+  | 'inn'
+  | 'return_town'
+  | 'leave_town'
+  | 'equipment'
+  | null;
 type BurstCommand = Exclude<CommandAnimation, 'status' | 'help' | null>;
 
 const modeOptions: ModeOption[] = [
@@ -58,7 +74,7 @@ const modeOptions: ModeOption[] = [
   },
 ];
 
-const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
+const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameState, onLogout }) => {
   const navigate = useNavigate();
   const [view, setView] = useState<GameView>('lobby');
   const [messages, setMessages] = useState<Message[]>([
@@ -76,12 +92,16 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [inBattle, setInBattle] = useState(false);
+  const [location, setLocation] = useState<GameLocation>('adventure');
   const [lobbyError, setLobbyError] = useState('');
   const [activeCommand, setActiveCommand] = useState<CommandAnimation>(null);
   const [animationKey, setAnimationKey] = useState(0);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [regenTick, setRegenTick] = useState(Date.now());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const logBodyRef = useRef<HTMLDivElement>(null);
+  const gameStateReceivedAtRef = useRef(Date.now());
+  const isRefreshingRegenRef = useRef(false);
 
   useEffect(() => {
     if (!logBodyRef.current) return;
@@ -102,6 +122,14 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
     return () => window.clearTimeout(timerId);
   }, [activeCommand, animationKey]);
 
+  useEffect(() => {
+    const timerId = window.setInterval(() => {
+      setRegenTick(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timerId);
+  }, []);
+
   const updateBattleState = (response: string) => {
     if (response.includes('現れた') || response.includes('戦闘') || response.includes('敵')) {
       setInBattle(true);
@@ -115,17 +143,35 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
   const applyCommandResponse = (response: CommandResponse) => {
     if (response.game_state) {
       setGameState(response.game_state);
+      gameStateReceivedAtRef.current = Date.now();
+      setRegenTick(Date.now());
       setInBattle(response.game_state.inBattle);
+      if (response.game_state.location) {
+        setLocation(response.game_state.location);
+      }
       return;
     }
 
     updateBattleState(response.message);
+    if (response.message.includes('街へ戻りました')) {
+      setLocation('town');
+    }
   };
 
   const getPercent = (value: number, max: number) => {
     if (max <= 0) return 0;
 
     return Math.max(0, Math.min(100, Math.round((value / max) * 100)));
+  };
+
+  const formatDuration = (totalSeconds: number) => {
+    const seconds = Math.max(0, Math.ceil(totalSeconds));
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    if (minutes <= 0) return `${remainingSeconds}秒`;
+
+    return `${minutes}分${remainingSeconds.toString().padStart(2, '0')}秒`;
   };
 
   const player = gameState?.player;
@@ -137,6 +183,36 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
   const experienceProgress = experience % nextLevelExperience;
   const hpPercent = getPercent(hp, maxHp);
   const expPercent = getPercent(experienceProgress, nextLevelExperience);
+  const hpRegen = gameState?.hpRegen;
+  const secondsSinceState = Math.floor((regenTick - gameStateReceivedAtRef.current) / 1000);
+  const secondsUntilNextRegen = hpRegen?.is_active
+    ? Math.max(0, hpRegen.seconds_until_next - secondsSinceState)
+    : 0;
+  const secondsUntilFullHp = hpRegen?.is_active
+    ? Math.max(0, hpRegen.seconds_until_full - secondsSinceState)
+    : 0;
+
+  useEffect(() => {
+    if (!hpRegen?.is_active || secondsUntilNextRegen > 0 || isRefreshingRegenRef.current) return;
+
+    isRefreshingRegenRef.current = true;
+    onRefreshGameState()
+      .then((state) => {
+        setGameState(state);
+        gameStateReceivedAtRef.current = Date.now();
+        setRegenTick(Date.now());
+        setInBattle(state.inBattle);
+        if (state.location) {
+          setLocation(state.location);
+        }
+      })
+      .catch(() => {
+        gameStateReceivedAtRef.current = Date.now();
+      })
+      .finally(() => {
+        isRefreshingRegenRef.current = false;
+      });
+  }, [hpRegen?.is_active, onRefreshGameState, secondsUntilNextRegen]);
 
   const startStoryMode = async () => {
     if (isProcessing) return;
@@ -156,6 +232,7 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
       ]);
       setGameStarted(true);
       setInBattle(false);
+      setLocation('adventure');
       applyCommandResponse(response);
       setView('playing');
     } catch (error) {
@@ -172,6 +249,52 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
 
   const executeCommand = async (commandLabel: string, command: string) => {
     if (isProcessing) return;
+
+    if (command === 'return_town' || command === 'leave_town' || command === 'equipment') {
+      setActiveCommand(command as CommandAnimation);
+      setAnimationKey((current) => current + 1);
+      setMessages((prev) => [
+        ...prev,
+        { type: 'action', text: `▶ ${commandLabel}`, timestamp: new Date() },
+      ]);
+
+      if (command === 'return_town') {
+        setLocation('town');
+        setMessages((prev) => [
+          ...prev,
+          {
+            type: 'system',
+            text: '街に戻りました。宿屋で回復したり、装備や冒険者情報を確認できます。',
+            timestamp: new Date(),
+          },
+        ]);
+      }
+
+      if (command === 'leave_town') {
+        setLocation('adventure');
+        setMessages((prev) => [
+          ...prev,
+          {
+            type: 'system',
+            text: '街を出て、ふたたび冒険に向かいます。',
+            timestamp: new Date(),
+          },
+        ]);
+      }
+
+      if (command === 'equipment') {
+        setMessages((prev) => [
+          ...prev,
+          {
+            type: 'output',
+            text: '=== 装備 ===\n武器: 旅人の剣\n防具: 布の服\nアクセサリ: なし\n\n装備変更機能は街の機能として準備中です。',
+            timestamp: new Date(),
+          },
+        ]);
+      }
+
+      return;
+    }
 
     if (command !== 'items') {
       setActiveCommand(command as CommandAnimation);
@@ -230,16 +353,27 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
       return [
         { label: 'たたかう', command: 'attack', enabled: true },
         { label: 'ぼうぎょ', command: 'defend', enabled: true },
+        { label: 'ポーション', command: 'potion', enabled: true },
         { label: 'にげる', command: 'flee', enabled: true },
         { label: 'ステータス', command: 'status', enabled: true },
       ];
     }
 
+    if (location === 'town') {
+      return [
+        { label: '冒険に出る', command: 'leave_town', enabled: true },
+        { label: '宿屋 30G', command: 'inn', enabled: true },
+        { label: 'アイテム', command: 'items', enabled: true },
+        { label: 'ステータス', command: 'status', enabled: true },
+        { label: '装備', command: 'equipment', enabled: true },
+      ];
+    }
+
     return [
-      { label: 'すすむ（探索）', command: 'explore', enabled: true },
+      { label: 'すすむ', command: 'explore', enabled: true },
+      { label: 'アイテム', command: 'items', enabled: true },
       { label: 'ステータス', command: 'status', enabled: true },
-      { label: 'アイテム', command: 'items', enabled: false },
-      { label: 'ヘルプ', command: 'help', enabled: true },
+      { label: '街に戻る', command: 'return_town', enabled: true },
     ];
   };
 
@@ -301,8 +435,12 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
           </div>
           <div className="game-header-actions">
             {gameStarted && (
-              <span className={`game-mode-badge ${inBattle ? 'game-mode-battle' : 'game-mode-explore'}`}>
-                {inBattle ? 'Battle Mode' : 'Explore Mode'}
+              <span
+                className={`game-mode-badge ${
+                  inBattle ? 'game-mode-battle' : location === 'town' ? 'game-mode-town' : 'game-mode-explore'
+                }`}
+              >
+                {inBattle ? 'Battle Mode' : location === 'town' ? 'Town Mode' : 'Explore Mode'}
               </span>
             )}
             <button type="button" className="game-subtle-button" onClick={() => setView('lobby')}>
@@ -339,6 +477,22 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
               <div className="game-meter" aria-label={`HP ${hp}/${maxHp}`}>
                 <div className="game-meter-fill game-meter-hp" style={{ width: `${hpPercent}%` }} />
               </div>
+              {hpRegen && (
+                <div className="game-regen-status" aria-live="polite">
+                  {hpRegen.is_full ? (
+                    <span>自動回復: HP満タン</span>
+                  ) : hpRegen.is_active ? (
+                    <>
+                      <span>
+                        次回 {formatDuration(secondsUntilNextRegen)}後に HP +{hpRegen.amount}
+                      </span>
+                      <span>満タンまで {formatDuration(secondsUntilFullHp)}</span>
+                    </>
+                  ) : (
+                    <span>自動回復: 停止中</span>
+                  )}
+                </div>
+              )}
             </div>
             <div className="game-vital-row">
               <div className="game-vital-label">
@@ -352,14 +506,44 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
           </div>
         </div>
 
-        <section className={`game-log-panel ${activeCommand ? `game-log-animating game-log-${activeCommand}` : ''}`}>
-          <div className="game-log-title">Adventure Log</div>
+        <section
+          className={`game-log-panel ${location === 'town' && !inBattle ? 'game-town-mode' : ''} ${
+            activeCommand ? `game-log-animating game-log-${activeCommand}` : ''
+          }`}
+        >
+          <div className="game-log-title">{location === 'town' && !inBattle ? 'Town Log' : 'Adventure Log'}</div>
           {shouldShowActionBurst(activeCommand) && (
             <div key={`${activeCommand}-${animationKey}`} className={`game-action-burst game-action-${activeCommand}`}>
               <span className="game-action-line game-action-line-one" />
               <span className="game-action-line game-action-line-two" />
               <span className="game-action-spark game-action-spark-one" />
               <span className="game-action-spark game-action-spark-two" />
+            </div>
+          )}
+          {location === 'town' && !inBattle && (
+            <div className="game-town-scene" aria-label="Town hub">
+              <div className="game-town-summary">
+                <span>Home Town</span>
+                <strong>はじまりの街</strong>
+                <p>冒険の準備を整える拠点です。</p>
+              </div>
+              <div className="game-town-facilities">
+                <article>
+                  <span>Inn</span>
+                  <strong>宿屋 30G</strong>
+                  <p>HPとMPを全回復できます。</p>
+                </article>
+                <article>
+                  <span>Gear</span>
+                  <strong>装備</strong>
+                  <p>武器や防具の確認場所です。</p>
+                </article>
+                <article>
+                  <span>Profile</span>
+                  <strong>冒険者情報</strong>
+                  <p>Lv.{level} / {player?.gold ?? 0}G</p>
+                </article>
+              </div>
             </div>
           )}
           <div className="game-log-body" ref={logBodyRef}>
@@ -373,7 +557,7 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onLogout }) => {
           </div>
         </section>
 
-        <nav className="game-command-panel" aria-label="Story commands">
+        <nav className={`game-command-panel ${inBattle ? 'game-command-panel-battle' : ''}`} aria-label="Story commands">
           {menuOptions.map((option) => (
             <button
               key={option.command}

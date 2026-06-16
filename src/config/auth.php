@@ -112,4 +112,20 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Development Auto Login
+    |--------------------------------------------------------------------------
+    |
+    | This is only for local/testing convenience. Production refuses to use it
+    | even if the environment variable is accidentally enabled.
+    |
+    */
+
+    'dev_auto_login' => [
+        'enabled' => env('DEV_AUTO_LOGIN', false),
+        'email' => env('DEV_AUTO_LOGIN_EMAIL', 'dev@example.com'),
+        'name' => env('DEV_AUTO_LOGIN_NAME', 'Dev Hero'),
+    ],
+
 ];

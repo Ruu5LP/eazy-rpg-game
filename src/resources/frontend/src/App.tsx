@@ -3,7 +3,7 @@ import MenuRPG from './components/MenuRPG';
 import TitleScreen from './components/TitleScreen';
 import AuthPage from './components/AuthPage';
 import ProtectedRoute from './components/ProtectedRoute';
-import { apiService, type AuthUser, type CommandResponse } from './services/api';
+import { apiService, type AuthUser, type CommandResponse, type GameState } from './services/api';
 
 function App() {
   const handleLogout = async () => {
@@ -44,6 +44,10 @@ function App() {
     }
   };
 
+  const handleRefreshGameState = async (): Promise<GameState> => {
+    return apiService.getGameState();
+  };
+
   return (
     <BrowserRouter>
       <Routes>
@@ -54,7 +58,12 @@ function App() {
           element={
             <ProtectedRoute>
               {(user: AuthUser) => (
-                <MenuRPG userName={user.name} onCommand={handleCommand} onLogout={handleLogout} />
+                <MenuRPG
+                  userName={user.name}
+                  onCommand={handleCommand}
+                  onRefreshGameState={handleRefreshGameState}
+                  onLogout={handleLogout}
+                />
               )}
             </ProtectedRoute>
           }

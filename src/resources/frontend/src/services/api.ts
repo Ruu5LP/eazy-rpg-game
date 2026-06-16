@@ -15,12 +15,21 @@ export interface GameState {
     gold: number;
   } | null;
   inBattle: boolean;
+  location?: 'adventure' | 'town';
   currentEnemy: {
     name: string;
     hp: number;
     max_hp: number;
     level: number;
   } | null;
+  hpRegen: {
+    amount: number;
+    interval_seconds: number;
+    seconds_until_next: number;
+    seconds_until_full: number;
+    is_full: boolean;
+    is_active: boolean;
+  };
 }
 
 export interface CommandResponse {
@@ -91,6 +100,10 @@ class ApiService {
 
   async verifyTwoFactor(code: string): Promise<AuthResponse> {
     return this.request<AuthResponse>('/api/auth/verify-2fa', 'POST', { code });
+  }
+
+  async devLogin(): Promise<{ user: AuthUser; message: string }> {
+    return this.request<{ user: AuthUser; message: string }>('/api/auth/dev-login', 'POST');
   }
 
   async logout(): Promise<{ message: string }> {
