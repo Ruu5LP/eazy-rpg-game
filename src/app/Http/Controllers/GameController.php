@@ -130,7 +130,7 @@ class GameController extends Controller
             'attack' => 10,
             'defense' => 5,
             'experience' => 0,
-            'gold' => 100,
+            'gold' => 150,
         ]);
 
         $session->player_id = $player->id;
@@ -245,7 +245,7 @@ class GameController extends Controller
                 'attack' => 10,
                 'defense' => 5,
                 'experience' => 0,
-                'gold' => 100,
+                'gold' => 150,
             ]);
 
             $session->player_id = $player->id;
