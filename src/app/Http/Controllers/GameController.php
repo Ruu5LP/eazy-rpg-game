@@ -103,9 +103,20 @@ class GameController extends Controller
         $user = $request->user();
         $name = $user->name;
 
-        // Reset existing session if any
-        if ($session->player_id) {
-            // Optional: delete old player or just create new one
+        $existing = Player::where('user_id', $user->id)->latest('id')->first();
+
+        if ($existing) {
+            $session->player_id = $existing->id;
+            if (!$session->game_data) {
+                $session->game_data = $this->initialGameData();
+            }
+            $session->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => "おかえり、{$name}！冒険を再開します。",
+                'game_state' => $this->getGameStateData($session->refresh()),
+            ]);
         }
 
         $player = Player::create([
@@ -208,6 +219,21 @@ class GameController extends Controller
         // Handle start command specially if called via executeCommand
         if ($action === 'start' || $action === 'はじめる') {
             $user = $session->user;
+            $existing = Player::where('user_id', $user->id)->latest('id')->first();
+
+            if ($existing) {
+                $session->player_id = $existing->id;
+                if (!$session->game_data) {
+                    $session->game_data = $this->initialGameData();
+                }
+                $session->save();
+
+                return [
+                    'success' => true,
+                    'message' => "おかえり、{$user->name}！冒険を再開します。",
+                ];
+            }
+
             $player = Player::create([
                 'user_id' => $user->id,
                 'name' => $user->name,
