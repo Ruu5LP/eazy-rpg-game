@@ -344,12 +344,18 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
       ];
     }
 
-    return [
+    const options: MenuOption[] = [
       { label: 'すすむ', command: 'explore', enabled: true },
       { label: 'アイテム', command: 'items', enabled: true },
       { label: 'ステータス', command: 'status', enabled: true },
       { label: '街に戻る', command: 'return_town', enabled: true },
     ];
+
+    if (level >= 5) {
+      options.splice(1, 0, { label: 'ボスに挑む', command: 'boss', enabled: true });
+    }
+
+    return options;
   };
 
   const shouldShowActionBurst = (command: CommandAnimation): command is BurstCommand => {
