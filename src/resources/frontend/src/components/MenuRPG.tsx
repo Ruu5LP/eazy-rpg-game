@@ -434,16 +434,20 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
         <div className="game-status-board">
           <div className="game-status-identity">
             <div>
-              <span>Name</span>
+              <span>冒険者</span>
               <strong>{player?.name ?? userName}</strong>
             </div>
             <div>
-              <span>Level</span>
-              <strong>{level}</strong>
+              <span>レベル</span>
+              <strong>Lv.{level}</strong>
             </div>
             <div>
-              <span>Gold</span>
+              <span>ゴールド</span>
               <strong>{player?.gold ?? 0} G</strong>
+            </div>
+            <div>
+              <span>現在地</span>
+              <strong>{inBattle ? '⚔️ 戦闘中' : location === 'town' ? '🏠 はじまりの街' : '🌲 フィールド'}</strong>
             </div>
           </div>
 
