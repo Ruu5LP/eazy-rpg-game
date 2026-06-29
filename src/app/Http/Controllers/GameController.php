@@ -106,11 +106,7 @@ class GameController extends Controller
         $existing = Player::where('user_id', $user->id)->latest('id')->first();
 
         if ($existing) {
-            $session->player_id = $existing->id;
-            if (!$session->game_data) {
-                $session->game_data = $this->initialGameData();
-            }
-            $session->save();
+            $this->resumeExistingPlayer($session, $existing);
 
             return response()->json([
                 'success' => true,
@@ -222,11 +218,7 @@ class GameController extends Controller
             $existing = Player::where('user_id', $user->id)->latest('id')->first();
 
             if ($existing) {
-                $session->player_id = $existing->id;
-                if (!$session->game_data) {
-                    $session->game_data = $this->initialGameData();
-                }
-                $session->save();
+                $this->resumeExistingPlayer($session, $existing);
 
                 return [
                     'success' => true,
@@ -964,6 +956,15 @@ class GameController extends Controller
 
         $session->battle_id = null;
         $this->setLocation($session, 'town');
+    }
+
+    private function resumeExistingPlayer(GameSession $session, Player $existing): void
+    {
+        $session->player_id = $existing->id;
+        if (!$session->game_data) {
+            $session->game_data = $this->initialGameData();
+        }
+        $session->save();
     }
 
     private function initialGameData(): array
