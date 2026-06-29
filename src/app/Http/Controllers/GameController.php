@@ -312,15 +312,18 @@ class GameController extends Controller
 
         $player = Player::find($session->player_id);
         
+        $nextLevelExp = $player->level * 100;
+        $remainingExp = max(0, $nextLevelExp - $player->experience);
+
         $message = "=== {$player->name} のステータス ===\n";
         $message .= "レベル: {$player->level}\n";
         $message .= "HP: {$player->hp}/{$player->max_hp}\n";
         $message .= "MP: {$player->mp}/{$player->max_mp}\n";
-        $message .= "ポーション: " . $this->potionCount($session) . "\n";
         $message .= "攻撃力: {$player->attack}\n";
         $message .= "防御力: {$player->defense}\n";
-        $message .= "経験値: {$player->experience}\n";
-        $message .= "ゴールド: {$player->gold}\n";
+        $message .= "経験値: {$player->experience} (次Lvまで: {$remainingExp})\n";
+        $message .= "ゴールド: {$player->gold}G\n";
+        $message .= "ポーション: " . $this->potionCount($session) . "個\n";
 
         if ($session->battle_id) {
             $battle = Battle::with('enemy')->find($session->battle_id);
