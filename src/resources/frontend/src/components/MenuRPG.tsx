@@ -54,24 +54,6 @@ const modeOptions: ModeOption[] = [
     status: 'Playable',
     enabled: true,
   },
-  {
-    title: 'フレンド',
-    description: '仲間の冒険者とつながる機能です。',
-    status: 'Coming soon',
-    enabled: false,
-  },
-  {
-    title: 'ランキング',
-    description: '到達レベルや討伐記録を競える予定です。',
-    status: 'Coming soon',
-    enabled: false,
-  },
-  {
-    title: 'イベント',
-    description: '期間限定クエストや特別な報酬を準備中です。',
-    status: 'Coming soon',
-    enabled: false,
-  },
 ];
 
 const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameState, onLogout }) => {
@@ -421,8 +403,8 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
           </div>
 
           <aside className="game-lobby-note">
-            <strong>Adventure Log</strong>
-            <span>ストーリーモード開始後に、探索ログとコマンドメニューへ切り替わります。</span>
+            <strong>はじめて遊ぶ方へ</strong>
+            <span>「ストーリーモード」を選ぶと冒険が始まります。探索しながらレベルを上げてボスを倒しましょう！</span>
           </aside>
         </section>
       </main>
