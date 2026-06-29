@@ -266,6 +266,7 @@ class GameController extends Controller
             'defend', 'ぼうぎょ' => $this->defend($session),
             'flee', 'にげる' => $this->flee($session),
             'explore', 'たんさく' => $this->explore($session),
+            'boss', 'ボス' => $this->challengeBoss($session),
             'items', 'アイテム' => $this->showItems($session),
             'potion', 'use_potion', 'use-potion', 'heal' => $this->usePotion($session),
             'rest' => $this->rest($session),
@@ -337,6 +338,71 @@ class GameController extends Controller
         return [
             'success' => true,
             'message' => $message,
+        ];
+    }
+
+    private const BOSS_DATA = [
+        'name' => '魔王ダークロード',
+        'level' => 5,
+        'hp' => 250,
+        'attack' => 28,
+        'defense' => 10,
+        'experience_reward' => 300,
+        'gold_reward' => 200,
+    ];
+
+    private const BOSS_MIN_LEVEL = 5;
+
+    private function challengeBoss(GameSession $session): array
+    {
+        if (!$session->player_id) {
+            return ['success' => false, 'message' => "ゲームが開始されていません。"];
+        }
+
+        if ($this->hasActiveBattle($session)) {
+            return ['success' => false, 'message' => "すでに戦闘中です！先に戦闘を終わらせてください。"];
+        }
+
+        $player = Player::find($session->player_id);
+
+        if ($player->level < self::BOSS_MIN_LEVEL) {
+            $remaining = self::BOSS_MIN_LEVEL - $player->level;
+            return [
+                'success' => false,
+                'message' => "まだボスに挑む力が足りません。\nLv.{$player->level}→Lv." . self::BOSS_MIN_LEVEL . "まであと{$remaining}レベル必要です。\nもっと強くなってから挑戦してください！",
+            ];
+        }
+
+        $boss = self::BOSS_DATA;
+
+        $enemy = Enemy::create([
+            'name' => $boss['name'],
+            'level' => $boss['level'],
+            'hp' => $boss['hp'],
+            'max_hp' => $boss['hp'],
+            'attack' => $boss['attack'],
+            'defense' => $boss['defense'],
+            'experience_reward' => $boss['experience_reward'],
+            'gold_reward' => $boss['gold_reward'],
+        ]);
+
+        $battle = Battle::create([
+            'player_id' => $player->id,
+            'enemy_id' => $enemy->id,
+            'enemy_hp' => $enemy->hp,
+            'is_active' => true,
+        ]);
+
+        $session->battle_id = $battle->id;
+        $this->setLocation($session, 'adventure');
+
+        return [
+            'success' => true,
+            'message' => "===== ボス出現！ =====\n" .
+                "大地が揺れ、暗黒の気配が漂う...\n" .
+                "【{$boss['name']}】が現れた！\n" .
+                "敵HP: {$boss['hp']}/{$boss['hp']}\n" .
+                "これが最後の戦いだ。全力で挑め！",
         ];
     }
 
