@@ -536,13 +536,30 @@ class GameController extends Controller
             $session->battle_id = null;
             $session->save();
 
-            $message .= "\n{$enemy->name}を倒した！\n";
-            $message .= "経験値 +{$enemy->experience_reward}\n";
-            $message .= "ゴールド +{$enemy->gold_reward}\n";
-            if ($levelUpResult['levels'] > 0) {
-                $message .= "レベルアップ！ Lv.{$player->level}になった！\n";
-                $message .= $this->formatLevelUpStatGains($levelUpResult['stat_gains']) . "\n";
-                $message .= "HPとMPが全回復した！\n";
+            $isBoss = ($enemy->name === self::BOSS_DATA['name']);
+
+            if ($isBoss) {
+                $message .= "\n===== 勝利！ =====\n";
+                $message .= "【{$enemy->name}】を討伐した！\n";
+                $message .= "経験値 +{$enemy->experience_reward}\n";
+                $message .= "ゴールド +{$enemy->gold_reward}\n";
+                if ($levelUpResult['levels'] > 0) {
+                    $message .= "レベルアップ！ Lv.{$player->level}になった！\n";
+                    $message .= $this->formatLevelUpStatGains($levelUpResult['stat_gains']) . "\n";
+                    $message .= "HPとMPが全回復した！\n";
+                }
+                $message .= "\n✨ 世界に平和が戻った！\n";
+                $message .= "でも冒険はまだ続く…\n";
+                $message .= "さらに強くなってもう一度挑戦することもできます！";
+            } else {
+                $message .= "\n{$enemy->name}を倒した！\n";
+                $message .= "経験値 +{$enemy->experience_reward}\n";
+                $message .= "ゴールド +{$enemy->gold_reward}\n";
+                if ($levelUpResult['levels'] > 0) {
+                    $message .= "レベルアップ！ Lv.{$player->level}になった！\n";
+                    $message .= $this->formatLevelUpStatGains($levelUpResult['stat_gains']) . "\n";
+                    $message .= "HPとMPが全回復した！\n";
+                }
             }
 
             return [
