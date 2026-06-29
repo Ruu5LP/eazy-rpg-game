@@ -351,22 +351,17 @@ class GameController extends Controller
             if ($battle && $battle->is_active) {
                 return [
                     'success' => false,
-                    'message' => "すでに戦闘中です！",
+                    'message' => "すでに戦闘中です！先に戦闘を終わらせてください。",
                 ];
             }
+            $session->battle_id = null;
+            $session->save();
         }
 
         $player = Player::find($session->player_id);
 
-        // Create or get a random enemy
-        $enemyTypes = [
-            ['name' => 'スライム', 'level' => 1, 'hp' => 30, 'attack' => 5, 'defense' => 2, 'exp' => 10, 'gold' => 20],
-            ['name' => 'ゴブリン', 'level' => 2, 'hp' => 50, 'attack' => 8, 'defense' => 3, 'exp' => 20, 'gold' => 30],
-            ['name' => 'オーク', 'level' => 3, 'hp' => 80, 'attack' => 12, 'defense' => 5, 'exp' => 35, 'gold' => 50],
-        ];
+        $enemyData = $this->selectEnemyForPlayer($player);
 
-        $enemyData = $enemyTypes[array_rand($enemyTypes)];
-        
         $enemy = Enemy::create([
             'name' => $enemyData['name'],
             'level' => $enemyData['level'],
@@ -388,10 +383,41 @@ class GameController extends Controller
         $session->battle_id = $battle->id;
         $this->setLocation($session, 'adventure');
 
+        $explorationTexts = [
+            "草むらをかき分けると…",
+            "足音が聞こえると思ったら…",
+            "ふと気配を感じた！",
+            "道の陰から突然…",
+        ];
+        $intro = $explorationTexts[array_rand($explorationTexts)];
+
         return [
             'success' => true,
-            'message' => "野生の{$enemy->name} (Lv.{$enemy->level})が現れた！\nHP: {$enemy->hp}/{$enemy->max_hp}\n\n'attack' で攻撃、'defend' で防御、'flee' で逃げる",
+            'message' => "{$intro}\n野生の{$enemy->name} (Lv.{$enemy->level})が現れた！\n敵HP: {$enemy->hp}/{$enemy->max_hp}",
         ];
+    }
+
+    private function selectEnemyForPlayer(Player $player): array
+    {
+        $level = $player->level;
+
+        $allEnemies = [
+            ['name' => 'スライム',   'level' => 1, 'hp' => 25,  'attack' => 5,  'defense' => 1, 'exp' => 15,  'gold' => 10, 'min_level' => 1, 'max_level' => 3],
+            ['name' => 'コウモリ',   'level' => 1, 'hp' => 20,  'attack' => 6,  'defense' => 1, 'exp' => 12,  'gold' => 8,  'min_level' => 1, 'max_level' => 3],
+            ['name' => 'ゴブリン',   'level' => 2, 'hp' => 40,  'attack' => 8,  'defense' => 2, 'exp' => 25,  'gold' => 15, 'min_level' => 2, 'max_level' => 4],
+            ['name' => 'オーガ',     'level' => 3, 'hp' => 65,  'attack' => 12, 'defense' => 4, 'exp' => 40,  'gold' => 25, 'min_level' => 3, 'max_level' => 5],
+            ['name' => 'オーク',     'level' => 3, 'hp' => 70,  'attack' => 11, 'defense' => 5, 'exp' => 38,  'gold' => 28, 'min_level' => 3, 'max_level' => 5],
+            ['name' => 'ダークウルフ', 'level' => 4, 'hp' => 90, 'attack' => 15, 'defense' => 5, 'exp' => 55,  'gold' => 35, 'min_level' => 4, 'max_level' => 6],
+            ['name' => 'スケルトン', 'level' => 4, 'hp' => 85,  'attack' => 14, 'defense' => 6, 'exp' => 50,  'gold' => 30, 'min_level' => 4, 'max_level' => 6],
+        ];
+
+        $candidates = array_filter($allEnemies, fn($e) => $e['min_level'] <= $level && $e['max_level'] >= $level);
+
+        if (empty($candidates)) {
+            $candidates = $allEnemies;
+        }
+
+        return $candidates[array_rand($candidates)];
     }
 
     private function attack(GameSession $session): array
