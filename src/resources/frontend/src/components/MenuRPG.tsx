@@ -43,7 +43,6 @@ type CommandAnimation =
   | 'inn'
   | 'return_town'
   | 'leave_town'
-  | 'equipment'
   | null;
 type BurstCommand = Exclude<CommandAnimation, 'status' | 'help' | null>;
 
@@ -340,7 +339,6 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
         { label: '宿屋 30G', command: 'inn', enabled: true },
         { label: 'アイテム', command: 'items', enabled: true },
         { label: 'ステータス', command: 'status', enabled: true },
-        { label: '装備', command: 'equipment', enabled: true },
       ];
     }
 
@@ -515,9 +513,9 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
                   <p>HPとMPを全回復できます。</p>
                 </article>
                 <article>
-                  <span>Gear</span>
-                  <strong>装備</strong>
-                  <p>武器や防具の確認場所です。</p>
+                  <span>Items</span>
+                  <strong>アイテム</strong>
+                  <p>ポーションを確認できます。</p>
                 </article>
                 <article>
                   <span>Profile</span>
@@ -539,16 +537,15 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
         </section>
 
         <nav className={`game-command-panel ${inBattle ? 'game-command-panel-battle' : ''}`} aria-label="Story commands">
-          {menuOptions.map((option) => (
+          {menuOptions.filter((option) => option.enabled).map((option) => (
             <button
               key={option.command}
               type="button"
               onClick={() => executeCommand(option.label, option.command)}
-              disabled={!option.enabled || isProcessing}
+              disabled={isProcessing}
               className={`game-command-button ${activeCommand === option.command ? 'game-command-button-active' : ''}`}
             >
               <strong>{option.label}</strong>
-              {!option.enabled && <span>Coming soon</span>}
             </button>
           ))}
         </nav>
