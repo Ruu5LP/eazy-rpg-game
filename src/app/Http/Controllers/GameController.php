@@ -490,8 +490,8 @@ class GameController extends Controller
         $battle->save();
 
         $message .= "{$enemy->name}の反撃！\n{$player->name}に{$enemyDamage}のダメージ！\n";
-        $message .= "\nプレイヤーHP: {$player->hp}/{$player->max_hp}\n";
-        $message .= "敵HP: {$battle->enemy_hp}/{$enemy->max_hp}\n";
+        $message .= "\n[自分] HP: {$player->hp}/{$player->max_hp}\n";
+        $message .= "[{$enemy->name}] HP: {$battle->enemy_hp}/{$enemy->max_hp}\n";
 
         // Check if player is defeated
         if ($player->hp <= 0) {
@@ -592,7 +592,7 @@ class GameController extends Controller
 
         $message = "{$player->name}は防御姿勢を取った！\n";
         $message .= "{$enemy->name}の攻撃！\n{$player->name}に{$enemyDamage}のダメージ！\n";
-        $message .= "\nプレイヤーHP: {$player->hp}/{$player->max_hp}\n";
+        $message .= "\n[自分] HP: {$player->hp}/{$player->max_hp}\n";
 
         if ($player->hp <= 0) {
             $this->returnDefeatedPlayerToTown($session, $battle);
@@ -614,16 +614,46 @@ class GameController extends Controller
             ];
         }
 
-        $battle = Battle::find($session->battle_id);
-        $battle->is_active = false;
-        $battle->save();
+        $battle = Battle::with('enemy')->find($session->battle_id);
+        if (!$battle || !$battle->is_active) {
+            return [
+                'success' => false,
+                'message' => "戦闘中ではありません。",
+            ];
+        }
 
-        $session->battle_id = null;
-        $session->save();
+        $fleeChance = 75;
+        if (rand(1, 100) <= $fleeChance) {
+            $battle->is_active = false;
+            $battle->save();
+
+            $session->battle_id = null;
+            $session->save();
+
+            return [
+                'success' => true,
+                'message' => "うまく逃げ出した！",
+            ];
+        }
+
+        $player = Player::find($session->player_id);
+        $enemy = $battle->enemy;
+        $enemyDamage = max(1, $enemy->attack - $player->defense + rand(-1, 1));
+        $player->hp = max(0, $player->hp - $enemyDamage);
+        $player->save();
+
+        $message = "逃げようとしたが失敗した！\n";
+        $message .= "{$enemy->name}に{$enemyDamage}のダメージを受けた！\n";
+        $message .= "[自分] HP: {$player->hp}/{$player->max_hp}";
+
+        if ($player->hp <= 0) {
+            $this->returnDefeatedPlayerToTown($session, $battle);
+            $message .= "\n倒されてしまった...\n街へ戻りました。";
+        }
 
         return [
             'success' => true,
-            'message' => "戦闘から逃げ出した！",
+            'message' => $message,
         ];
     }
 
