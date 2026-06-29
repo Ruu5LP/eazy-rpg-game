@@ -236,7 +236,7 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
   const executeCommand = async (commandLabel: string, command: string) => {
     if (isProcessing) return;
 
-    if (command === 'return_town' || command === 'leave_town' || command === 'equipment') {
+    if (command === 'return_town' || command === 'leave_town') {
       setActiveCommand(command as CommandAnimation);
       setAnimationKey((current) => current + 1);
       setMessages((prev) => [
@@ -250,7 +250,7 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
           ...prev,
           {
             type: 'system',
-            text: '街に戻りました。宿屋で回復したり、装備や冒険者情報を確認できます。',
+            text: '街に戻りました。宿屋で回復したり、冒険者情報を確認できます。',
             timestamp: new Date(),
           },
         ]);
@@ -262,18 +262,7 @@ const MenuRPG: React.FC<MenuRPGProps> = ({ userName, onCommand, onRefreshGameSta
           ...prev,
           {
             type: 'system',
-            text: '街を出て、ふたたび冒険に向かいます。',
-            timestamp: new Date(),
-          },
-        ]);
-      }
-
-      if (command === 'equipment') {
-        setMessages((prev) => [
-          ...prev,
-          {
-            type: 'output',
-            text: '=== 装備 ===\n武器: 旅人の剣\n防具: 布の服\nアクセサリ: なし\n\n装備変更機能は街の機能として準備中です。',
+            text: '街を出て、ふたたび冒険に向かいます。「すすむ」で探索しましょう。',
             timestamp: new Date(),
           },
         ]);
